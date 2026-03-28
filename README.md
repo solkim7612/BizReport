@@ -64,42 +64,63 @@ graph TD
 
 ```mermaid
 erDiagram
-USER ||--o{ BUSINESS_HISTORY : "tracks"
-USER ||--o{ DATA : "owns"
-USER ||--o{ REPORT : "has"
+    TAX_RATE ||--o{ USER : "applies_to (논리적 참조)"
+    USER ||--o{ BIZ_HISTORY : "tracks"
+    USER ||--o{ DATA : "owns"
+    USER ||--o{ REPORT : "generates"
+
+    TAX_RATE {
+        varchar(10) ind_code PK "업종코드"
+        year target_year PK "귀속연도"
+        decimal vat_rate "업종별 부가가치율"
+        decimal exp_rate "단순경비율"
+    }
 
     USER {
-        string tax_id PK "사업자등록번호 (Login ID)"
-        string ind_code "주업종코드"
-        string status "CONTINUED/CLOSED"
+        varchar(12) tax_id PK "사업자등록번호"
+        varchar(255) password "비밀번호"
+        varchar(50) owner_name "대표자명"
+        date open_date "개업일자"
+        varchar(100) biz_name "상호"
+        varchar(10) ind_code FK "주업종코드"
+        enum status "상태(CONTINUED/CLOSED)"
+        datetime created_at 
+        datetime updated_at 
     }
+
     BIZ_HISTORY {
-        bigint history_id PK
-        string tax_id FK
-        string vat_type "일반/간이"
-        date start_date
-        date end_date
+        bigint history_id PK 
+        varchar(12) tax_id FK "사업자등록번호"
+        enum vat_type "일반/간이"
+        varchar(100) ind_name "업태 및 종목명"
+        date start_date "적용 시작일"
+        date end_date "적용 종료일"
     }
+
     DATA {
-        bigint data_id PK
-        string tax_id FK
-        string data_type "SALES/PURCHASE"
-        boolean is_e "전자여부 (수정불가)"
+        bigint data_id PK 
+        varchar(12) tax_id FK "사업자등록번호"
+        enum data_type "매출/매입 구분"
+        enum data_method "증빙종류"
+        boolean is_e "전자여부"
         boolean is_mod "유저수정여부"
+        varchar(12) vendor_id "거래처 사업자번호"
+        date trans_date "거래일자"
+        decimal net_price "공급가액"
+        decimal vat_value "세액"
         decimal total_price "합계금액"
+        varchar(500) ocr_url "영수증 이미지 경로"
+        datetime created_at 
     }
+
     REPORT {
-        bigint report_id PK
-        string tax_id FK
-        string report_type "MONTHLY/ACCUMULATED"
+        bigint report_id PK 
+        varchar(12) tax_id FK "사업자등록번호"
+        enum report_type "리포트 타입"
+        varchar(7) target_month "대상 월(YYYY-MM)"
         decimal tax_result "예상세액"
-        json tax_calc "계산근거 로그"
-    }
-    TAX_RATE {
-        string ind_code PK
-        year target_year PK
-        decimal vat_rate
-        decimal expense_rate
+        json tax_calc "계산 근거(JSON)"
+        datetime updated_at 
     }
 ```
 
