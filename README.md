@@ -12,6 +12,8 @@
 
 <br/>
 
+---
+
 ## 2. Tech Stack
 - **Language:** Java 17
 - **Framework:** Spring Boot 3.2.4
@@ -22,6 +24,8 @@
 - **Infra:** Docker & Docker Compose
 
 <br/>
+
+---
 
 ## 3. System Architecture
 ![System Architecture](https://img.shields.io/badge/Architecture-Layered-blue)
@@ -59,11 +63,16 @@ graph TD
 
 <br/>
 
+---
+
 ## 4. Core Features
 ### 4.1. 주요 도메인 기능
 - 사업자 진위 확인 및 이력 관리: 공공데이터 API를 활용해 분기마다 사업자 상태를 동기화하고, 과세 유형(일반/간이) 변경 시 BIZ_HISTORY 테이블에 이력을 안전하게 적재합니다.
 - 영수증 AI 자동 기장: 사용자가 업로드한 영수증 이미지를 비동기로 OCR 분석하여 DATA 테이블에 적재합니다.
 - 대용량 세금 리포트 생성 배치: 매일 새벽 3시, 수만 건의 거래 데이터를 Chunk 단위로 읽어 부가세/종소세를 계산합니다.
+
+<br/>
+
 ### 4.2. Process Flow
 ```mermaid
 sequenceDiagram
@@ -81,6 +90,8 @@ participant E as Tax Engine
     B->>DB: 4. REPORT 테이블에 결과 및 근거(JSON) 저장 (Writer)
 ```
 
+<br/>
+
 ### 4.3. Out of Scope (구현 제외 범위)
 - **면세사업자 대상 로직 제외:** 부가세 과세사업자(일반/간이)의 세금 예측 파이프라인에 개발 역량을 집중
 - **성실신고대상자 및 복식부기 의무자 제외:** 매출 규모가 작은 영세/소규모 소상공인을 핵심 타겟으로 설정
@@ -89,15 +100,21 @@ participant E as Tax Engine
 
 <br/>
 
+---
+
 ## 5. Troubleshooting
 - 추가예정
 
 <br/>
 
+---
+
 ## 6. API Documentation
 - 추가예정
 
 <br/>
+
+---
 
 ## 7. Testing
 - 추가예정
