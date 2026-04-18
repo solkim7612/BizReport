@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: api
+
+  # 1. Database 설정 (MySQL)
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/bizreport?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
+    username: root
+    password: 1234
+
+  # 2. JPA & Hibernate 설정
+  jpa:
+    hibernate:
+      ddl-auto: update    # 실무 운영 시에는 none/validate
+    show-sql: true        # 실행되는 SQL 로그 출력
+    properties:
+      hibernate:
+        format_sql: true  # SQL 예쁘게 출력
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc.time_zone: Asia/Seoul
+
+  # 3. Spring Batch 설정
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+  # 4. 파일 업로드 설정 (TaxRate CSV 업로드용)
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# 5. Swagger (OpenAPI) 설정
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    groups-order: asc
+    operations-sorter: method
+  api-docs:
+    path: /api-docs
+  default-consume-media-type: application/json
+  default-produce-media-type: application/json
+
+# 6. 로깅 설정
+logging:
+  level:
+    org.springframework.batch: DEBUG
+    com.bizreport.api: DEBUG
+
+file:
+  upload:
+    temp-dir: D:/project_private/BizReport/temp/
+
+open-api:
+  nts:
+    base-url: https://api.odcloud.kr/api/nts-businessman/v1
+    service-key: b95936c39e2f6b053adb9c0a7209f0ac37c047ade67e9e4a084c114280ec15e3

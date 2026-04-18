@@ -2,8 +2,6 @@ plugins {
     java
     id("org.springframework.boot") version "3.2.4"
     id("io.spring.dependency-management") version "1.1.5"
-    kotlin("jvm") version "1.9.23"
-    kotlin("plugin.jpa") version "1.9.23"
 }
 
 group = "com.bizreport"
@@ -27,6 +25,7 @@ dependencies {
     // Web & Validation
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     // Persistence (JPA & MySQL)
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -45,6 +44,7 @@ dependencies {
 
     // Swagger (OpenAPI 3)
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     // Observability (Jaeger/Tracing)
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
