@@ -110,6 +110,13 @@ public class VATCalcService {
         BigDecimal sales = sumBy(dataList, DataType.SALES, Data::getTotalPrice);
         BigDecimal salesTax = sales.multiply(rate.getVatRate()).multiply(BigDecimal.valueOf(0.1));
 
+        BigDecimal purchase = dataList.stream()
+                .filter(d -> d.getType() == DataType.PURCHASE)
+                .filter(d -> d.getVatValue() != null && d.getVatValue().compareTo(BigDecimal.ZERO) > 0) // 부가세 공제 가능 항목만!
+                .map(Data::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal purchaseTax = purchase.multiply(rate.getVatRate()).multiply(BigDecimal.valueOf(0.1));
+
         calc.put("taxType", "SIMPLIFIED_VAT");
         calc.put("vatRate", rate.getVatRate());
 

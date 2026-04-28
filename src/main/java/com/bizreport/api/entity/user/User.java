@@ -4,6 +4,7 @@ import com.bizreport.api.entity.global.BaseEntity;
 import com.bizreport.api.entity.global.TaxType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -36,4 +37,21 @@ public class User extends BaseEntity {
 
     @Column(name = "b_stt")
     private String bStt;
+
+    @Builder
+    public User(String id, String nm, TaxType taxType, LocalDate taxTypeChangeDt, String indCd, String indNm, String bStt) {
+        this.id = id;
+        this.nm = nm;
+        this.taxType = taxType;
+        this.taxTypeChangeDt = taxTypeChangeDt;
+        this.indCd = indCd;
+        this.indNm = indNm;
+        this.bStt = bStt;
+    }
+
+    public void update(TaxType taxType, String bStt, LocalDate taxTypeChangeDt) {
+        this.taxType = taxType;
+        this.bStt = bStt;
+        this.taxTypeChangeDt = taxTypeChangeDt;
+    }
 }

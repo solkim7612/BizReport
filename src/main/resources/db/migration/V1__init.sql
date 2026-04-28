@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `USER` (
 -- 2. 세율/경비율 마스터 테이블
 CREATE TABLE IF NOT EXISTS `TAX_RATE` (
                                           `ind_cd` VARCHAR(10) NOT NULL COMMENT '업종코드',
-    `year` VARCHAR(4) NOT NULL COMMENT '귀속연도',
+    `target_year` VARCHAR(4) NOT NULL COMMENT '귀속연도',
     `vat_rate` DECIMAL(5, 4) NOT NULL COMMENT '업종별 부가가치율',
     `exp_rate` DECIMAL(5, 4) NOT NULL COMMENT '단순경비율',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -26,17 +26,19 @@ CREATE TABLE IF NOT EXISTS `TAX_RATE` (
 CREATE TABLE IF NOT EXISTS `DATA` (
                                       `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                                       `b_id` VARCHAR(12) NOT NULL COMMENT '사업자등록번호 (FK)',
-    `type` VARCHAR(50) NOT NULL COMMENT 'SALES(매출) or PURCHASE(매입)',
-    `method` VARCHAR(50) NOT NULL COMMENT '결제수단',
+    `data_type` ENUM('SALES', 'PURCHASE') NOT NULL,
+    `data_method` ENUM('INVOICE', 'CARD', 'RECEIPT', 'CASH') NOT NULL,
     `is_e` BOOLEAN NOT NULL COMMENT '전자발행 여부',
     `is_mod` BOOLEAN NOT NULL COMMENT '수정 여부',
+    `card_num` VARCHAR(20) COMMENT '카드번호',
     `vendor_id` VARCHAR(12) COMMENT '거래처 사업자번호',
     `trans_date` DATE NOT NULL COMMENT '거래일자',
     `net_value` DECIMAL(15, 0) NOT NULL COMMENT '공급가액',
     `vat_value` DECIMAL(15, 0) NOT NULL COMMENT '부가세액',
-    `total_price` DECIMAL(15, 0) NOT NULL COMMENT '공급대가 (총액)',
+    `total_price` DECIMAL(15, 0) NOT NULL COMMENT '공급대가 (공급가액+부가세액)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_card_history` (`b_id`, `card_num`, `vendor_id`, `trans_date`, `total_price`),
     FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -54,3 +56,16 @@ CREATE TABLE IF NOT EXISTS `REPORT` (
     UNIQUE KEY `uk_report_target` (`b_id`, `report_type`, `period_type`, `period_target`),
     FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. 사업자 유형 이력 테이블
+CREATE TABLE IF NOT EXISTS `BIZ_HISTORY` (
+                               `h_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                               `b_id` VARCHAR(12) NOT NULL,
+    `tax_type` ENUM('GENERAL', 'SIMPLIFIED') NOT NULL COMMENT '부가가치세 신고유형',
+    `tax_type_change_dt` DATE NOT NULL,
+    `tax_type_end_dt` DATE NOT NULL DEFAULT '9999-12-31' COMMENT '해당 유형 종료일',
+    `ind_cd` VARCHAR(10) NOT NULL COMMENT '업종코드',
+    `ind_nm` VARCHAR(100),
+     FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`) ON DELETE CASCADE,
+     INDEX `idx_history_lookup` (`b_id`, `tax_type_change_dt`, `tax_type_end_dt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

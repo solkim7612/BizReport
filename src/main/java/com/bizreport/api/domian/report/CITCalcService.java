@@ -4,7 +4,7 @@ import com.bizreport.api.dto.report.ReportRequest;
 import com.bizreport.api.entity.global.TaxType;
 import com.bizreport.api.entity.data.Data;
 import com.bizreport.api.entity.data.DataType;
-import com.bizreport.api.entity.rate.CITTax;
+import com.bizreport.api.entity.rate.CITRate;
 import com.bizreport.api.entity.rate.RateId;
 import com.bizreport.api.entity.rate.TaxRate;
 import com.bizreport.api.entity.report.PeriodType;
@@ -96,12 +96,12 @@ public class CITCalcService {
         BigDecimal profit = totalSales.subtract(estimatedExpense).max(BigDecimal.ZERO);
 
         // ✅ 누진세율 Enum 적용
-        BigDecimal finalTax = CITTax.calculateTax(profit);
+        BigDecimal finalTax = CITRate.calculateTax(profit);
 
         snapshot.put("taxType", "CIT_SIMPLE_EXPENSE");
         snapshot.put("totalSales", totalSales);
         snapshot.put("profit", profit);
-        snapshot.put("appliedCitRate", CITTax.getAppliedRate(profit));
+        snapshot.put("appliedCitRate", CITRate.getAppliedRate(profit));
 
         return new Result(finalTax, snapshot);
     }

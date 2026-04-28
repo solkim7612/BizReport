@@ -1,13 +1,8 @@
 package com.bizreport.api.entity.rate;
 
 import com.bizreport.api.entity.global.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.EmbeddedId;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.math.BigDecimal;
 
@@ -19,9 +14,16 @@ public class TaxRate extends BaseEntity {
     @EmbeddedId
     private RateId id;
 
-    @Column(name = "vat_rate", nullable = false, precision = 5, scale = 4)
+    @Column(name = "vat_rate", nullable = false, precision = 2, scale = 0)
     private BigDecimal vatRate;
 
-    @Column(name = "exp_rate", nullable = false, precision = 5, scale = 4)
+    @Column(name = "exp_rate", nullable = false, precision = 4, scale = 1)
     private BigDecimal expRate;
+
+    @Builder
+    public TaxRate(RateId id, BigDecimal vatRate, BigDecimal expRate) {
+        this.id = id;
+        this.vatRate = vatRate;
+        this.expRate = expRate;
+    }
 }

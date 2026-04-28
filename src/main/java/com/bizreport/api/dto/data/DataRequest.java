@@ -14,9 +14,9 @@ import java.util.concurrent.ThreadLocalRandom;
 @Getter
 @Setter
 public class DataRequest {
-    private String id;         // 타겟 사업자등록번호
-    private int targetYear;    // 생성할 연도
-    private int count;         // 생성할 데이터 개수
+    private String id;
+    private int targetYear;
+    private int count;
 
     public Data toEntity(User user) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -25,22 +25,24 @@ public class DataRequest {
         DataMethod method = DataMethod.values()[random.nextInt(DataMethod.values().length)];
 
         boolean isE = random.nextBoolean();
-        boolean isMod = isE;
+        boolean isMod = isE && random.nextInt(10) == 0;
 
-        // 세무서(3) + 법인/개인구분(2) + 일련번호(4) + 검증번호(1)
         int taxOfficeCode = random.nextInt(900) + 100;
         int typeCode = random.nextInt(79) + 1;
         int serialNumber = random.nextInt(9999) + 1;
         int validationCode = random.nextInt(9) + 1;
-
         String vendorId = String.format("%03d%02d%04d%d", taxOfficeCode, typeCode, serialNumber, validationCode);
 
-        // 랜덤 날짜 생성
+        String cardNum = null;
+        if (method == DataMethod.CARD) {
+            cardNum = String.format("%04d-%04d-%04d-%04d",
+                    random.nextInt(10000), random.nextInt(10000), random.nextInt(10000), random.nextInt(10000));
+        }
+
         int randomMonth = random.nextInt(12) + 1;
         int randomDay = random.nextInt(28) + 1;
         LocalDate transDate = LocalDate.of(this.targetYear, randomMonth, randomDay);
 
-        // 랜덤 금액 생성 및 부가세/합계 계산
         long randomNetValue = (random.nextInt(100) + 1) * 10000L;
         BigDecimal netValue = BigDecimal.valueOf(randomNetValue);
         BigDecimal vatValue = netValue.multiply(BigDecimal.valueOf(0.1));
@@ -52,6 +54,7 @@ public class DataRequest {
                 .method(method)
                 .isE(isE)
                 .isMod(isMod)
+                .cardNum(cardNum)
                 .vendorId(vendorId)
                 .transDate(transDate)
                 .netValue(netValue)

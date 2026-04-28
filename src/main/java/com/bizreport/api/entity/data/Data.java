@@ -14,7 +14,15 @@ import java.time.LocalDate;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "DATA")
+@Table(
+        name = "DATA",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_card_history",
+                        columnNames = {"b_id", "card_num", "vendor_id", "trans_date", "total_price"}
+                )
+        }
+)
 public class Data extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,12 +46,16 @@ public class Data extends BaseEntity {
     @Column(name = "is_mod", nullable = false)
     private boolean isMod;
 
+    @Column(name = "card_num", length = 20)
+    private String cardNum;
+
     @Column(name = "vendor_id", length = 12)
     private String vendorId;
 
     @Column(name = "trans_date", nullable = false)
     private LocalDate transDate;
 
+    // 💡 계산을 위해 반드시 BigDecimal 유지
     @Column(name = "net_value", nullable = false, precision = 15, scale = 0)
     private BigDecimal netValue;
 
@@ -55,12 +67,13 @@ public class Data extends BaseEntity {
 
     @Builder
     public Data(User user, DataType type, DataMethod method, boolean isE, boolean isMod,
-                String vendorId, LocalDate transDate, BigDecimal netValue, BigDecimal vatValue, BigDecimal totalPrice) {
+                String cardNum, String vendorId, LocalDate transDate, BigDecimal netValue, BigDecimal vatValue, BigDecimal totalPrice) {
         this.user = user;
         this.type = type;
         this.method = method;
         this.isE = isE;
         this.isMod = isMod;
+        this.cardNum = cardNum;
         this.vendorId = vendorId;
         this.transDate = transDate;
         this.netValue = netValue;
