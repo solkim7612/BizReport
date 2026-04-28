@@ -1,0 +1,90 @@
+### 환경변수 세팅
+@baseUrl = http://localhost:8080/api/v1
+@bno = 0000000000
+
+---
+### 1. [Business] 사업자 등록 및 국세청 상태 갱신 API
+# 국세청 API를 찔러서 사업자 상태(휴/폐업)와 과세유형을 DB에 Upsert 합니다.
+POST {{baseUrl}}/business/register
+Content-Type: application/json
+
+{
+  "bno": "{{bno}}",
+  "nm": "테스트상사",
+  "indCd": "525101",
+  "indNm": "도매 및 소매업"
+}
+
+---
+### 2. [Data] 가상 세무 데이터(영수증/카드내역) 대량 생성 API
+# 성능 테스트 및 리포트 계산을 위해 n건의 랜덤 데이터를 생성합니다.
+POST {{baseUrl}}/data/mock
+Content-Type: application/json
+
+{
+  "id": "{{bno}}",
+  "targetYear": 2024,
+  "count": 1000
+}
+
+---
+### 3. [Report] 부가가치세(VAT) 누적 리포트 생성 API
+# 지정된 기간의 데이터를 바탕으로 부가세를 계산하고 JSON 스냅샷을 만듭니다.
+POST {{baseUrl}}/reports/accumulated
+Content-Type: application/json
+
+{
+  "id": "{{bno}}",
+  "reportType": "VAT",
+  "startDate": "2024-01-01",
+  "endDate": "2024-06-30"
+}
+
+---
+### 4. [Report] 종합소득세(CIT) 누적 리포트 생성 API
+# 지정된 기간의 데이터를 바탕으로 단순경비율과 누진세율을 적용해 종소세를 계산합니다.
+POST {{baseUrl}}/reports/accumulated
+Content-Type: application/json
+
+{
+  "id": "{{bno}}",
+  "reportType": "CIT",
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31"
+}
+
+---
+### 5. [Upload] 엑셀/CSV 템플릿 다운로드 API
+# 사용자가 데이터를 입력할 빈 양식(format.csv)을 다운로드 받습니다.
+GET {{baseUrl}}/upload/format/card
+
+---
+### 6. [Upload] 국세청 업종별 세율/경비율 데이터 업로드 (Multipart)
+# 관리자가 국세청에서 다운받은 CSV를 올려서 DB(TAX_RATE)에 적재합니다.
+# (주의: < 기호 뒤에 실제 파일이 있는 로컬 경로를 적어주세요)
+POST {{baseUrl}}/upload/rate
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="tax_rate_2024.csv"
+Content-Type: text/csv
+
+< ./src/test/resources/temp/rate/tax_rate_2024.csv
+--WebAppBoundary--
+
+---
+### 7. [Upload] 사용자 신용카드 내역 업로드 (Multipart)
+# 사용자가 자신의 카드 내역 CSV를 올리면, 마감일을 체크하여 스마트 기장합니다.
+POST {{baseUrl}}/upload/card
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="id"
+
+{{bno}}
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="my_card_history.csv"
+Content-Type: text/csv
+
+< ./src/test/resources/temp/card/1234567890/my_card_history.csv
+--WebAppBoundary--
