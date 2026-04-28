@@ -1,9 +1,7 @@
 plugins {
     java
     id("org.springframework.boot") version "3.2.4"
-    id("io.spring.dependency-management") version "1.1.5"
-    kotlin("jvm") version "1.9.23"
-    kotlin("plugin.jpa") version "1.9.23"
+    id("io.spring.dependency-management") version "1.1.6"
 }
 
 group = "com.bizreport"
@@ -24,40 +22,34 @@ repositories {
 }
 
 dependencies {
-    // Web & Validation
+    // Spring Boot Starters
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-
-    // Persistence (JPA & MySQL)
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    runtimeOnly("com.mysql:mysql-connector-j")
-    testImplementation("com.h2database:h2")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-batch")
 
-    // Querydsl (Spring Boot 3.x jakarta)
+    // Database & Migration
+    runtimeOnly("com.mysql:mysql-connector-j")
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-mysql")
+
+    // QueryDSL (버전은 로그에 있던 5.0.0 기준)
     implementation("com.querydsl:querydsl-jpa:5.0.0:jakarta")
     annotationProcessor("com.querydsl:querydsl-apt:5.0.0:jakarta")
-    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
     annotationProcessor("jakarta.annotation:jakarta.annotation-api")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
 
-    // Batch
-    implementation("org.springframework.boot:spring-boot-starter-batch")
-    testImplementation("org.springframework.batch:spring-batch-test")
-
-    // Swagger (OpenAPI 3)
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
-
-    // Observability (Jaeger/Tracing)
-    implementation("io.micrometer:micrometer-tracing-bridge-otel")
-    implementation("io.opentelemetry:opentelemetry-exporter-jaeger")
-
-    // Lombok
+    // Utilities (Lombok, Gson)
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
+    implementation("com.google.code.gson:gson")
 
-    // Test
+    // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.batch:spring-batch-test")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+// QueryDSL 빌드 옵션
+tasks.withType<JavaCompile> {
+    options.generatedSourceOutputDirectory.set(file("build/generated/querydsl"))
 }
