@@ -1,5 +1,2 @@
 ﻿신용카드 매입 자료 입력,,,,,
-CardNum,TransDate,VenderId,NetValue,VatValue,TotalPrice
-,,,,,
-,,,,,
-,,,,,
+CardNum,TransDt,VenderId,NetValue,VatValue,TotalPrice

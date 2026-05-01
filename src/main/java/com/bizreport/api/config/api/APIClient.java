@@ -1,9 +1,9 @@
 package com.bizreport.api.config.api;
 
-import com.bizreport.api.dto.business.StatusRequest;
-import com.bizreport.api.dto.business.StatusResponse;
-import com.bizreport.api.exception.CustomException;
-import com.bizreport.api.exception.ErrorCode;
+import com.bizreport.core.dto.business.StatusRequest;
+import com.bizreport.core.dto.business.StatusResponse;
+import com.bizreport.core.exception.CustomException;
+import com.bizreport.core.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,34 +22,36 @@ import java.util.Collections;
 public class APIClient {
     private final RestTemplate restTemplate;
 
-    @Value("${nts.api.url}")
-    private String ntsUrl;
+    @Value("${api.nts.url}")
+    private String url;
 
-    @Value("${nts.api.key}")
-    private String ntsKey;
+    @Value("${api.nts.key}")
+    private String key;
 
-    public StatusResponse.Data getBusinessStatus(String bno) {
+    public StatusResponse.Data status(String b_no) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        StatusRequest request = new StatusRequest(Collections.singletonList(bno));
+        StatusRequest request = new StatusRequest(Collections.singletonList(b_no));
         HttpEntity<StatusRequest> entity = new HttpEntity<>(request, headers);
 
         try {
-            URI uri = new URI(ntsUrl + "?serviceKey=" + ntsKey);
+            URI uri = new URI(url + "?serviceKey=" + key);
             StatusResponse response = restTemplate.postForObject(uri, entity, StatusResponse.class);
 
             if (response == null || !"OK".equals(response.getStatus_code()) || response.getData().isEmpty()) {
                 throw new IllegalStateException("국세청 API 응답이 올바르지 않습니다.");
             }
 
-            StatusResponse.Data resultData = response.getData().get(0);
+            StatusResponse.Data data = response.getData().get(0);
 
-            if ("국세청에 등록되지 않은 사업자등록번호입니다.".equals(resultData.getTax_type())) {
+            // TODO: TaxType Entity 에서 api에서 tax_type_cd 받을 경우 entity enum 으로 파싱 필요
+            // TODO:
+            if ("국세청에 등록되지 않은 사업자등록번호입니다.".equals(data.getTax_type())) {
                 throw new CustomException(ErrorCode.USER_NOT_FOUND);
             }
 
-            return resultData;
+            return data;
 
         } catch (CustomException e) {
             throw e;

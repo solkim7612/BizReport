@@ -35,11 +35,19 @@ logging:
     org.hibernate.orm.jdbc.bind: trace
 
 batch:
-  upload:
-    rate-dir: "src/test/resources/temp/rate/"
-    card-dir: "src/test/resources/temp/card/"
+  chunk:
+    business: 500
+    data: 500
+    report: 100
 
-nts:
-  api:
+dir:
+  upload:
+    rate: "src/test/resources/temp/rate/"
+    card: "src/test/resources/temp/card/"
+  download:
+    card: "src/main/resources/static/"
+
+api:
+  nts:
     url: "https://api.odcloud.kr/api/nts-businessman/v1/status"
     key: "YOUR_DECODED_SERVICE_KEY"

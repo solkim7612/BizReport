@@ -44,6 +44,10 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     implementation("com.google.code.gson:gson")
 
+    // ShedLock
+    implementation("net.javacrumbs.shedlock:shedlock-spring:5.13.0")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:5.13.0")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.batch:spring-batch-test")
