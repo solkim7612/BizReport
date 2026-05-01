@@ -1,0 +1,22 @@
+spring:
+  profiles:
+    include: core
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.bizreport.api: debug
+
+api:
+  nts:
+    url: "https://api.odcloud.kr/api/nts-businessman/v1/status"
+    key: "YOUR_DECODED_SERVICE_KEY"
+
+dir:
+  upload:
+    rate: "src/test/resources/temp/rate/"
+    card: "src/test/resources/temp/card/"
+  download:
+    card: "src/main/resources/static/"

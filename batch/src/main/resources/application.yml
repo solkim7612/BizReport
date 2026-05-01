@@ -1,0 +1,25 @@
+spring:
+  profiles:
+    include: core
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+  main:
+    web-application-type: none
+
+batch:
+  chunk:
+    business: 500
+    data: 500
+    report: 100
+
+dir:
+  upload:
+    rate: "src/test/resources/temp/rate/"
+    card: "src/test/resources/temp/card/"
+  download:
+    card: "src/main/resources/static/"
