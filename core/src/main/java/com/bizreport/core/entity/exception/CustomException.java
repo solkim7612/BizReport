@@ -1,4 +1,4 @@
-package com.bizreport.core.exception;
+package com.bizreport.core.entity.exception;
 
 import lombok.Getter;
 
@@ -9,6 +9,11 @@ public class CustomException extends RuntimeException {
 
     public CustomException(ErrorCode errorCode) {
         super(errorCode.getMessage());
+        this.errorCode = errorCode;
+    }
+
+    public CustomException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getMessage(), cause);
         this.errorCode = errorCode;
     }
 }

@@ -7,8 +7,8 @@ import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.TaxType;
 import com.bizreport.core.entity.user.User;
-import com.bizreport.core.exception.CustomException;
-import com.bizreport.core.exception.ErrorCode;
+import com.bizreport.core.entity.exception.CustomException;
+import com.bizreport.core.entity.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

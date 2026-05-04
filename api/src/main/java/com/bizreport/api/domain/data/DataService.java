@@ -1,18 +1,17 @@
 package com.bizreport.api.domain.data;
 
 import com.bizreport.core.dto.data.DataRequest;
+import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.user.User;
-import com.bizreport.core.exception.CustomException;
-import com.bizreport.core.exception.ErrorCode;
+import com.bizreport.core.entity.exception.CustomException;
+import com.bizreport.core.entity.exception.ErrorCode;
+import com.bizreport.core.repository.batch.BatchRepository;
 import com.bizreport.core.repository.data.DataJdbcRepository;
 import com.bizreport.core.repository.business.UserRepository;
+import com.google.gson.Gson;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +24,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -34,8 +35,7 @@ public class DataService {
 
     private final UserRepository userRepo;
     private final DataJdbcRepository jdbcRepo;
-    private final JobLauncher asyncJobLauncher;
-    private final Job cardJob;
+    private final BatchRepository batchRepo;
 
     @Value("${dir.upload.card}")
     private String cardDir;
@@ -67,18 +67,20 @@ public class DataService {
             Files.createDirectories(path.getParent());
             Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
 
-            JobParameters params = new JobParametersBuilder()
-                    .addString("id", id)
-                    .addString("startDt", startDt)
-                    .addString("endDt", endDt)
-                    .addLong("time", System.currentTimeMillis())
-                    .toJobParameters();
+            Map<String, String> paramMap = new HashMap<>();
+            paramMap.put("id", id);
+            paramMap.put("startDt", startDt);
+            paramMap.put("endDt", endDt);
+            String params = new Gson().toJson(paramMap);
 
-            asyncJobLauncher.run(cardJob, params);
-            log.info("B_NO {} 카드 데이터 저장 및 기간({}~{}) 덮어쓰기 배치 시작", id, startDt, endDt);
+            BatchRequest request = new BatchRequest("cardJob", file.getOriginalFilename(), params);
+            batchRepo.save(request);
+
+            log.info("B_NO {} 카드사용내역({}~{}) 배치 작업 대기열 등록: {}", id, startDt, endDt, file.getOriginalFilename());
+
         } catch (Exception e) {
             log.error("B_NO {} 카드 파일 업로드 오류", id, e);
-            throw new RuntimeException("카드 내역 업로드에 실패했습니다.", e);
+            throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED, e);
         }
     }
 
@@ -88,7 +90,7 @@ public class DataService {
 
     private void validate(MultipartFile file, String extension) {
         if (file.isEmpty() || file.getOriginalFilename() == null || !file.getOriginalFilename().endsWith(extension)) {
-            throw new IllegalArgumentException("유효한 " + extension + " 파일이 아닙니다.");
+            throw new CustomException(ErrorCode.INVALID_FILE_EXTENSION);
         }
     }
 

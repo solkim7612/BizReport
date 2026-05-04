@@ -3,19 +3,17 @@ package com.bizreport.api.domain.business;
 import com.bizreport.api.config.api.APIClient;
 import com.bizreport.core.dto.business.RegisterRequest;
 import com.bizreport.core.dto.business.StatusResponse;
+import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.entity.user.User;
-import com.bizreport.core.exception.CustomException;
-import com.bizreport.core.exception.ErrorCode;
+import com.bizreport.core.entity.exception.CustomException;
+import com.bizreport.core.entity.exception.ErrorCode;
+import com.bizreport.core.repository.batch.BatchRepository;
 import com.bizreport.core.repository.business.HistoryRepository;
 import com.bizreport.core.repository.business.RateRepository;
 import com.bizreport.core.repository.business.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,9 +33,8 @@ public class BizService {
     private final UserRepository userRepo;
     private final HistoryRepository historyRepo;
     private final RateRepository rateRepo;
+    private final BatchRepository batchRepo;
     private final APIClient client;
-    private final JobLauncher asyncJobLauncher;
-    private final Job rateJob;
 
     @Value("${dir.upload.rate}")
     private String dir;
@@ -56,7 +53,7 @@ public class BizService {
 
         } catch (Exception e) {
             log.error("국세청 상태 조회 API 실패: {}", request.getId(), e);
-            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
+            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED, e);
         }
     }
 
@@ -70,17 +67,14 @@ public class BizService {
             Files.createDirectories(path.getParent());
             Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
 
-            JobParameters params = new JobParametersBuilder()
-                    .addLong("time", System.currentTimeMillis())
-                    .addString("fileName", file.getOriginalFilename())
-                    .toJobParameters();
+            BatchRequest request = new BatchRequest("rateJob", file.getOriginalFilename(), null);
+            batchRepo.save(request);
 
-            asyncJobLauncher.run(rateJob, params);
-            log.info("세율 데이터 파일 저장 및 배치 실행 완료");
+            log.info("세율 데이터 파일 업로드 완료 및 배치 작업 대기열 등록: {}", file.getOriginalFilename());
 
         } catch (Exception e) {
             log.error("파일 업로드 및 배치 실행 중 오류 발생", e);
-            throw new RuntimeException("배치 실행에 실패했습니다.", e);
+            throw new CustomException(ErrorCode.BATCH_REGISTRATION_FAILED, e);
         }
     }
 
@@ -107,7 +101,7 @@ public class BizService {
 
     private void validate(MultipartFile file, String extension) {
         if (file.isEmpty() || file.getOriginalFilename() == null || !file.getOriginalFilename().endsWith(extension)) {
-            throw new IllegalArgumentException("유효한 " + extension + " 파일이 아닙니다.");
+            throw new CustomException(ErrorCode.INVALID_FILE_EXTENSION);
         }
     }
 

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS `TAX_RATE` (
     `exp_rt` DECIMAL(5, 4) NOT NULL COMMENT '단순경비율',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`ind_cd`, `year`)
+    PRIMARY KEY (`ind_cd`, `target_year`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 3. 가상 세무 데이터(영수증) 테이블
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS `DATA` (
     `is_e` BOOLEAN NOT NULL COMMENT '전자발행 여부',
     `is_mod` BOOLEAN NOT NULL COMMENT '수정 여부',
     `card_num` VARCHAR(20) NOT NULL COMMENT '카드번호',
-    `vendor_id` VARCHAR(12) NOT NULLCOMMENT '거래처 사업자번호',
+    `vendor_id` VARCHAR(12) NOT NULL COMMENT '거래처 사업자번호',
     `trans_dt` DATE NOT NULL COMMENT '거래일자',
     `net_value` DECIMAL(15, 0) COMMENT '공급가액',
     `vat_value` DECIMAL(15, 0) COMMENT '부가세액',
@@ -67,6 +67,17 @@ CREATE TABLE IF NOT EXISTS `BIZ_HISTORY` (
     `tax_type_change_dt` DATE COMMENT '과세유형 전환일자',
     `tax_type_end_dt` DATE NOT NULL DEFAULT '9999-12-31' COMMENT '해당 유형 종료일',
     `end_dt` DATE COMMENT '폐업일',
-     FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`) ON DELETE CASCADE,
-     INDEX `idx_history_lookup` (`b_id`, `tax_type_change_dt`, `tax_type_end_dt`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`) ON DELETE CASCADE,
+    INDEX `idx_history_lookup` (`b_id`, `tax_type_change_dt`, `tax_type_end_dt`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6. 배치 요청(Batch Request) 대기열 테이블
+CREATE TABLE IF NOT EXISTS `batch_requests` (
+                                                `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                                `job_name` VARCHAR(255) NOT NULL COMMENT '실행할 Job 이름',
+    `file_name` VARCHAR(255) NOT NULL COMMENT '파일명',
+    `job_parameters` TEXT COMMENT 'Job 파라미터 (JSON)',
+    `status` ENUM('READY', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'READY' COMMENT '상태',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -9,8 +9,8 @@ import com.bizreport.core.entity.report.PeriodType;
 import com.bizreport.core.entity.report.Report;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.User;
-import com.bizreport.core.exception.CustomException;
-import com.bizreport.core.exception.ErrorCode;
+import com.bizreport.core.entity.exception.CustomException;
+import com.bizreport.core.entity.exception.ErrorCode;
 import com.bizreport.core.repository.business.RateRepository;
 import com.bizreport.core.repository.data.DataRepository;
 import com.bizreport.core.repository.report.ReportJdbcRepository;
@@ -78,7 +78,7 @@ public class ReportService {
         String targetYear = String.valueOf(targetMon.getYear());
 
         List<User> users = userRepo.findAllByIdIn(ids);
-        List<Data> data = dataRepo.findAllByUserIdInAndTransDateBetween(ids, startDt, endDt);
+        List<Data> data = dataRepo.findAllByUserIdInAndTransDtBetween(ids, startDt, endDt);
         Map<String, List<Data>> dataMap = data.stream()
                 .collect(Collectors.groupingBy(d -> d.getUser().getId()));
 
@@ -87,7 +87,7 @@ public class ReportService {
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
-        List<TaxRate> rates = rateRepo.findRatesByIndCdsAndYear(indCd, targetYear);
+        List<TaxRate> rates = rateRepo.findByIdIndCdInAndIdYear(indCd, targetYear);
 
         Map<String, TaxRate> rateMap = rates.stream()
                 .collect(Collectors.toMap(r -> r.getId().getIndCd(), Function.identity()));
@@ -118,8 +118,8 @@ public class ReportService {
         TaxCalculator calculator = calcs.get(command.reportType());
         if (calculator == null) throw new CustomException(ErrorCode.INVALID_REPORT_TYPE);
 
-        List<Data> dataList = dataRepo.findAllByUserIdAndTransDateBetween(command.user().getId(), startDt, endDt);
-        List<TaxRate> rates = rateRepo.findRatesByIndCdsAndYear(Collections.singletonList(command.user().getIndCd()), targetYear);
+        List<Data> dataList = dataRepo.findAllByUserIdAndTransDtBetween(command.user().getId(), startDt, endDt);
+        List<TaxRate> rates = rateRepo.findByIdIndCdInAndIdYear(Collections.singletonList(command.user().getIndCd()), targetYear);
         TaxRate rate = rates.stream()
                 .findFirst()
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSING_INDUSTRY_CODE));
@@ -148,7 +148,7 @@ public class ReportService {
         LocalDate deadline = Report.getDeadline(request.getReportType(), endMon);
 
         Report report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(request.getId(), request.getReportType(), periodType, period)
-                .orElseThrow(() -> new CustomException(ErrorCode.REPORT_NOT_FOUND, "해당 기간의 리포트가 생성되지 않았습니다. 먼저 생성을 요청해주세요."));
+                .orElseThrow(() -> new CustomException(ErrorCode.REPORT_NOT_FOUND));
 
         if (!LocalDate.now().isAfter(deadline)) {
             report.getCalc().put("isFinalized", false);

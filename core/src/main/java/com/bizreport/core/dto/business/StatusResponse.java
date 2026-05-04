@@ -14,6 +14,8 @@ import java.util.List;
 @Setter
 public class StatusResponse {
     private String status_code;
+    private Integer match_cnt;
+    private Integer request_cnt;
     private List<Data> data;
 
     @Getter
@@ -21,6 +23,7 @@ public class StatusResponse {
     public static class Data {
         private String b_no;                        // 사업자번호
         private String b_stt_cd;                    // 영업상태 (01 계속사업자, 02 휴업자, 03 폐업자)
+        private String tax_type;
         private String tax_type_cd;                 // 과세유형 (01 일반 02 간이? 03 면세?)
         private String tax_type_change_dt;          // 과세유형 전환일자 (YYYYMMDD)
         private String end_dt;                      // 폐업일

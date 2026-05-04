@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Repository
 public interface RateRepository extends JpaRepository<TaxRate, RateId> {
-    List<TaxRate> findRatesByIndCdsAndYear(List<String> indCd, String targetYear);
+    List<TaxRate> findByIdIndCdInAndIdYear(List<String> indCd, String targetYear);
 
     Optional<TaxRate> findFirstByIdIndCdOrderByIdYearDesc(String indCd);
 }
