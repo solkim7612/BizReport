@@ -1,10 +1,11 @@
 package com.bizreport.batch.config.business;
 
 import com.bizreport.core.dto.business.StatusResponse;
+import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.history.BizHistory;
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.TaxType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import com.bizreport.api.config.api.APIClient;
 import com.bizreport.core.dto.business.BizContext;
 import com.bizreport.core.repository.business.HistoryRepository;
@@ -20,14 +21,19 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.RepositoryItemReader;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
+import org.springframework.batch.item.file.FlatFileParseException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.retry.backoff.FixedBackOffPolicy;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Configuration
@@ -36,10 +42,10 @@ public class UpdateConfig {
     private final JobRepository job;
     private final PlatformTransactionManager manager;
     private final UserRepository userRepo;
-    private final HistoryRepository historyRepo;
     private final APIClient client;
+    private final JdbcTemplate template;
 
-    @Value("${batch.chunk.business:500}")
+    @Value("${batch.chunk.api:100}")
     private int chunk;
 
     @Bean
@@ -51,56 +57,82 @@ public class UpdateConfig {
 
     @Bean
     public Step updateStep(){
+        FixedBackOffPolicy backOffPolicy = new FixedBackOffPolicy();
+        backOffPolicy.setBackOffPeriod(3000L);
+
         return new StepBuilder("updateStep", job)
-                .<User, BizContext>chunk(chunk, manager)
+                .<Users, Users>chunk(chunk, manager)
                 .reader(userReader())
-                .processor(userProcessor())
-                .writer(contextWriter())
+                .writer(updateWriter())
                 .faultTolerant()
-                .skip(Exception.class)
-                .skipLimit(1000)
+                .retry(CustomException.class)
+                .retryLimit(3)
+                .backOffPolicy(backOffPolicy)
                 .build();
     }
 
-    private RepositoryItemReader<User> userReader() {
-        return new RepositoryItemReaderBuilder<User>()
+    private RepositoryItemReader<Users> userReader() {
+        return new RepositoryItemReaderBuilder<Users>()
                 .name("updateReader")
                 .repository(userRepo)
-                .methodName("findAll")
+                .methodName("findBySttNot")
                 .arguments(Status.CLOSED)
                 .pageSize(chunk)
                 .sorts(Collections.singletonMap("id", Sort.Direction.ASC))
                 .build();
     }
 
-    private ItemProcessor<User, BizContext> userProcessor() {
-        return user -> {
-            StatusResponse.Data data = client.status(user.getId());
-            TaxType taxType = TaxType.ofCode(data.getTax_type_cd());
-            Status stt = Status.ofCode(data.getB_stt_cd());
+    @Bean
+    public ItemWriter<Users> updateWriter() {
+        return chunkList -> {
+            List<Users> users = new ArrayList<>(chunkList.getItems());
+            List<String> bNoList = users.stream().map(Users::getId).toList();
 
-            if (user.getTaxType() == taxType && user.getStt() == stt) return null;
+            List<StatusResponse.Data> dataList = client.status(bNoList);
 
-            LocalDate taxTypeChangeDt = data.parseDate(data.getTax_type_change_dt());
-            BizHistory before = historyRepo.findFirstByUserOrderByIdDesc(user);
-            if (before != null) before.close(taxTypeChangeDt);
+            List<Object[]> historyUpdateArgs = new ArrayList<>();
+            List<Object[]> historyInsertArgs = new ArrayList<>();
+            List<Object[]> userUpdateArgs = new ArrayList<>();
 
-            data.batchUpdate(user);
-            BizHistory after = user.toHistEntity(user);
+            for (Users user : users) {
+                StatusResponse.Data ntsData = dataList.stream()
+                        .filter(d -> d.getB_no().equals(user.getId()))
+                        .findFirst().orElse(null);
 
-            log.info("B_NO {} : 변동 감지 (Processor 통과)", user.getId());
-            return new BizContext(user, before, after);
-        };
-    }
+                if (ntsData == null || "국세청에 등록되지 않은 사업자등록번호입니다.".equals(ntsData.getTax_type())) continue;
 
-    private ItemWriter<BizContext> contextWriter() {
-        return chunk -> {
-            for (BizContext ctx : chunk) {
-                if (ctx.before() != null) historyRepo.save(ctx.before());
-                userRepo.save(ctx.user());
-                historyRepo.save(ctx.after());
+                TaxType newTaxType = TaxType.ofCode(ntsData.getTax_type_cd());
+                Status newStt = Status.ofCode(ntsData.getB_stt_cd());
+
+                if (user.getTaxType() == newTaxType && user.getStt() == newStt) continue;
+
+                log.info("B_NO {} : 상태 변동 감지 업데이트 ({} -> {})", user.getId(), user.getStt(), newStt);
+
+                LocalDate changeDt = ntsData.parseDate(ntsData.getTax_type_change_dt());
+                if (changeDt == null) changeDt = LocalDate.now();
+
+                historyUpdateArgs.add(new Object[]{ changeDt, user.getId() });
+
+                historyInsertArgs.add(new Object[]{ user.getId(), newTaxType.name(), newStt.name(), changeDt });
+
+                userUpdateArgs.add(new Object[]{ newTaxType.name(), newStt.name(), user.getId() });
             }
-            log.info(">>>> {}건의 변경사항 DB 저장 완료", chunk.size());
+
+            if (!userUpdateArgs.isEmpty()) {
+                template.batchUpdate(
+                        "UPDATE BIZ_HISTORY SET tax_type_end_dt = ? WHERE b_id = ? AND tax_type_end_dt = '9999-12-31'",
+                        historyUpdateArgs);
+
+                template.batchUpdate(
+                        "INSERT INTO BIZ_HISTORY (b_id, tax_type, stt, tax_type_change_dt, tax_type_end_dt) VALUES (?, ?, ?, ?, '9999-12-31')",
+                        historyInsertArgs);
+
+                template.batchUpdate(
+                        "UPDATE USERS SET tax_type = ?, stt = ? WHERE b_id = ?",
+                        userUpdateArgs);
+
+                log.info(">>>> 상태 변경 및 이력 갱신 Bulk 완료");
+            }
         };
     }
 }

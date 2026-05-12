@@ -10,5 +10,4 @@ import java.util.List;
 @Repository
 public interface DataRepository extends JpaRepository<Data, Long> {
     List<Data> findAllByUserIdAndTransDtBetween(String id, LocalDate startDt, LocalDate endDt);
-    List<Data> findAllByUserIdInAndTransDtBetween(List<String> ids, LocalDate startDt, LocalDate endDt);
 }

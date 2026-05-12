@@ -16,10 +16,18 @@ batch:
     business: 500
     data: 500
     report: 100
+    api: 100
+
+api:
+  nts:
+    url: "https://api.odcloud.kr/api/nts-businessman/v1/status"
+    key: ${NTS_API_KEY}
 
 dir:
   upload:
-    rate: "src/test/resources/temp/rate/"
     card: "src/test/resources/temp/card/"
   download:
     card: "src/main/resources/static/"
+
+shedlock:
+  table-name: shedlock

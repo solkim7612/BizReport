@@ -5,13 +5,14 @@ import com.bizreport.core.entity.data.DataType;
 import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.TaxType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,10 +27,12 @@ public class VatCalculator implements TaxCalculator {
     }
 
     @Override
-    public Result calc(User user, List<Data> dataList, TaxRate rate, BigDecimal prepaidTax) {
+    public Result calc(Users user, List<Data> dataList, TaxRate rate, BigDecimal prepaidTax) {
         if (user.getIndCd() == null) throw new CustomException(ErrorCode.MISSING_INDUSTRY_CODE);
 
         boolean isGeneral = (user.getTaxType() == TaxType.GENERAL);
+
+        BigDecimal vatRt = rate.getVatRt().getRate().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
         BigDecimal sales = isGeneral
                 ? sumBy(dataList, DataType.SALES, Data::getNetValue)
@@ -37,7 +40,7 @@ public class VatCalculator implements TaxCalculator {
 
         BigDecimal salesTax = isGeneral
                 ? sumBy(dataList, DataType.SALES, Data::getVatValue)
-                : sales.multiply(rate.getVatRt().getRate()).multiply(BigDecimal.valueOf(0.1)); // Enum의 실제 값을 가져온다고 가정
+                : sales.multiply(vatRt).multiply(new BigDecimal("0.1"));
 
         BigDecimal purchases = isGeneral
                 ? sumBy(dataList, DataType.PURCHASE, Data::getNetValue)
@@ -49,15 +52,15 @@ public class VatCalculator implements TaxCalculator {
 
         BigDecimal purchaseTax = isGeneral
                 ? sumBy(dataList, DataType.PURCHASE, Data::getVatValue)
-                : purchases.multiply(rate.getVatRt().getRate()).multiply(BigDecimal.valueOf(0.005));
+                : purchases.multiply(new BigDecimal("0.005"));
 
         BigDecimal beforeTax = salesTax.subtract(purchaseTax).max(BigDecimal.ZERO);
 
         BigDecimal tax = beforeTax.subtract(prepaidTax);
         boolean isRefund = tax.compareTo(BigDecimal.ZERO) < 0;
 
-        BigDecimal pay = isRefund ? BigDecimal.ZERO : tax;
-        BigDecimal refund = isRefund ? tax.abs() : BigDecimal.ZERO;
+        BigDecimal pay = isRefund ? BigDecimal.ZERO : tax.setScale(-1, RoundingMode.DOWN);
+        BigDecimal refund = isRefund ? tax.abs().setScale(-1, RoundingMode.DOWN) : BigDecimal.ZERO;
 
         Map<String, Object> calc = new HashMap<>();
         calc.put("isGeneral", isGeneral);

@@ -12,10 +12,11 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class BatchService {
-    private final JobLauncher asyncJobLauncher;
+    private final JobLauncher jobLauncher;
     private final Job updateJob;
     private final Job reportJob;
     private final Job closedJob;
+    private final Job rateCleanupJob;
 
     public void runUpdate() {
         log.info("BATCH START: 분기별 국세청 상태 전체 동기화");
@@ -32,12 +33,17 @@ public class BatchService {
         executeJob(reportJob);
     }
 
+    public void runCleanup() {
+        log.info("BATCH START: 연간 세율 데이터 정리");
+        executeJob(rateCleanupJob);
+    }
+
     private void executeJob(Job job) {
         try {
             JobParameters params = new JobParametersBuilder()
                     .addLong("time", System.currentTimeMillis())
                     .toJobParameters();
-            asyncJobLauncher.run(job, params);
+            jobLauncher.run(job, params);
         } catch (Exception e) {
             log.error("배치 작업 실행 실패: {}", job.getName(), e);
         }

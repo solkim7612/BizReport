@@ -1,6 +1,6 @@
 package com.bizreport.core.repository.report;
 
-import com.bizreport.core.entity.report.Report;
+import com.bizreport.core.entity.report.Reports;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +22,8 @@ public class ReportJdbcRepository {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
-    public void insert(List<Report> reports) {
-        String sql = "INSERT INTO REPORT (b_id, report_type, period_type, period_target, tax_result, tax_calc) " +
+    public void insert(List<Reports> reports) {
+        String sql = "INSERT INTO REPORTS (b_id, report_type, period_type, period_target, tax_result, tax_calc) " +
                 "VALUES (?, ?, ?, ?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE " +
                 "tax_result = VALUES(tax_result), " +
@@ -31,7 +31,7 @@ public class ReportJdbcRepository {
                 "updated_at = NOW()";
 
         int batchSize = 1000;
-        List<Report> chunk = new ArrayList<>();
+        List<Reports> chunk = new ArrayList<>();
 
         for (int i = 0; i < reports.size(); i++) {
             chunk.add(reports.get(i));
@@ -47,11 +47,11 @@ public class ReportJdbcRepository {
         }
     }
 
-    private void batch(String sql, List<Report> chunk) {
+    private void batch(String sql, List<Reports> chunk) {
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
-                Report report = chunk.get(i);
+                Reports report = chunk.get(i);
                 ps.setString(1, report.getUser().getId());
                 ps.setString(2, report.getReportType().name());
                 ps.setString(3, report.getPeriodType().name());

@@ -2,7 +2,7 @@ package com.bizreport.core.entity.history;
 
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.TaxType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -23,7 +23,7 @@ public class BizHistory {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "b_id", nullable = false)
-    private User user;
+    private Users user;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "b_stt", nullable = false)
@@ -43,7 +43,7 @@ public class BizHistory {
     private LocalDate endDt;
 
     @Builder
-    public BizHistory(Long id, User user, Status stt, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate taxTypeEndDt, LocalDate endDt) {
+    public BizHistory(Long id, Users user, Status stt, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate taxTypeEndDt, LocalDate endDt) {
         this.id = id;
         this.user = user;
         this.stt = stt;

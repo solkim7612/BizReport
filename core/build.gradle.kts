@@ -24,8 +24,6 @@ dependencies {
     implementation("org.flywaydb:flyway-mysql")
 
     testImplementation("com.h2database:h2")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     constraints {
         implementation("io.github.classgraph:classgraph:4.8.165")
@@ -36,10 +34,6 @@ val generated = file("build/generated/querydsl")
 
 tasks.withType<JavaCompile> {
     options.generatedSourceOutputDirectory.set(generated)
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
 }
 
 sourceSets {

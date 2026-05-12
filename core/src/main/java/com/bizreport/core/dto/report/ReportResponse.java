@@ -1,7 +1,7 @@
 package com.bizreport.core.dto.report;
 
 import com.bizreport.core.entity.report.PeriodType;
-import com.bizreport.core.entity.report.Report;
+import com.bizreport.core.entity.report.Reports;
 import com.bizreport.core.entity.report.ReportType;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,7 +18,7 @@ public class ReportResponse {
     private BigDecimal tax;
     private Map<String, Object> calc;
 
-    public static ReportResponse from(Report report) {
+    public static ReportResponse from(Reports report) {
         return ReportResponse.builder()
                 .id(report.getId())
                 .reportType(report.getReportType())

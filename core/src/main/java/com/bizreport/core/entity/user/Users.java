@@ -13,8 +13,8 @@ import java.time.LocalDate;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "USER")
-public class User extends BaseEntity {
+@Table(name = "USERS")
+public class Users extends BaseEntity {
     @Id
     @Column(name = "b_id", length = 12)
     private String id;
@@ -43,7 +43,7 @@ public class User extends BaseEntity {
     private String indNm;
 
     @Builder
-    public User(String id, Status stt, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate endDt, String nm, String indCd, String indNm) {
+    public Users(String id, Status stt, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate endDt, String nm, String indCd, String indNm) {
         this.id = id;
         this.stt = stt;
         this.taxType = taxType;
@@ -54,7 +54,7 @@ public class User extends BaseEntity {
         this.indNm = indNm;
     }
 
-    public BizHistory toHistEntity(User user) {
+    public BizHistory toHistEntity(Users user) {
         return BizHistory.builder()
                 .user(user)
                 .stt(stt)

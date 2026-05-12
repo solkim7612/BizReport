@@ -14,20 +14,30 @@ public class BatchRequest extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "request_id")
     private Long id;
 
+    @Column(name = "job_name", nullable = false)
     private String jobName;
+
+    @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "file_data", columnDefinition = "LONGTEXT", nullable = false)
+    private String fileData;
+
+    @Column(name = "job_parameters", columnDefinition = "TEXT")
     private String jobParameters;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private BatchStatus status;
 
-    public BatchRequest(String jobName, String fileName, String jobParameters) {
+    public BatchRequest(String jobName, String fileName, String fileData, String jobParameters) {
         this.jobName = jobName;
         this.fileName = fileName;
+        this.fileData = fileData;
         this.jobParameters = jobParameters;
         this.status = BatchStatus.READY;
     }

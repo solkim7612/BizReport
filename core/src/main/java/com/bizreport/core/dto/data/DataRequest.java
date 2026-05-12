@@ -3,7 +3,7 @@ package com.bizreport.core.dto.data;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataMethod;
 import com.bizreport.core.entity.data.DataType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,22 +18,14 @@ public class DataRequest {
     private int year;
     private int count;
 
-    public Data toEntity(User user) {
+    public Data toEntity(Users user) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
 
         DataType type = random.nextBoolean() ? DataType.SALES : DataType.PURCHASE;
         DataMethod method = DataMethod.values()[random.nextInt(DataMethod.values().length)];
 
-        boolean isE = random.nextBoolean();
-
-        boolean isMod=false;
-        if(!isE){
-            if(type==DataType.PURCHASE){
-                isMod=true;
-            } else if (type == DataType.SALES && (method == DataMethod.CARD || method == DataMethod.RECEIPT || method == DataMethod.CASH)) {
-                isMod = true;
-            }
-        }
+        boolean isE = (method == DataMethod.INVOICE);
+        boolean isMod = !isE;
 
         int taxOffice = random.nextInt(900) + 100;
         int taxType = random.nextInt(79) + 1;

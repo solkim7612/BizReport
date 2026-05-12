@@ -1,7 +1,7 @@
 package com.bizreport.core.entity.data;
 
 import com.bizreport.core.entity.global.BaseEntity;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -23,7 +23,7 @@ public class Data extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "b_id", nullable = false)
-    private User user;
+    private Users user;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "data_type", nullable = false)
@@ -39,7 +39,7 @@ public class Data extends BaseEntity {
     @Column(name = "is_mod", nullable = false)
     private boolean isMod;
 
-    @Column(name = "card_num", length = 20, nullable = false)
+    @Column(name = "card_num", length = 20)
     private String cardNum;
 
     @Column(name = "vendor_id", length = 12, nullable = false)
@@ -58,7 +58,7 @@ public class Data extends BaseEntity {
     private BigDecimal totalPrice;
 
     @Builder
-    public Data(User user, DataType type, DataMethod method, boolean isE, boolean isMod,
+    public Data(Users user, DataType type, DataMethod method, boolean isE, boolean isMod,
                 String cardNum, String vendorId, LocalDate transDt, BigDecimal netValue, BigDecimal vatValue, BigDecimal totalPrice) {
         this.user = user;
         this.type = type;

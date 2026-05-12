@@ -16,7 +16,6 @@ api:
 
 dir:
   upload:
-    rate: "src/test/resources/temp/rate/"
     card: "src/test/resources/temp/card/"
   download:
     card: "src/main/resources/static/"

@@ -32,7 +32,11 @@ public class RateRequest {
     }
 
     private VatRate categorize(){
-        String category = (category1 + category2 + category3).replaceAll("\\s", "");
+        String c1 = (category1 == null) ? "" : category1;
+        String c2 = (category2 == null) ? "" : category2;
+        String c3 = (category3 == null) ? "" : category3;
+
+        String category = (c1 + c2 + c3).replaceAll("\\s", "");
 
         if (containsKey(category, "소매업", "재생용", "음식점업")) return VatRate.RT_15;
         if (containsKey(category, "제조업", "농업", "임업", "어업", "소화물")) return VatRate.RT_20;

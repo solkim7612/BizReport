@@ -2,7 +2,7 @@ package com.bizreport.core.dto.business;
 
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.TaxType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -28,8 +28,8 @@ public class StatusResponse {
         private String tax_type_change_dt;          // 과세유형 전환일자 (YYYYMMDD)
         private String end_dt;                      // 폐업일
 
-        public User toUserEntity(RegisterRequest request, String indNm) {
-            return User.builder()
+        public Users toUserEntity(RegisterRequest request, String indNm) {
+            return Users.builder()
                     .id(this.b_no)
                     .stt(Status.ofCode(this.b_stt_cd))
                     .taxType(TaxType.ofCode(this.tax_type_cd))
@@ -41,7 +41,7 @@ public class StatusResponse {
                     .build();
         }
 
-        public void batchUpdate(User user) {
+        public void batchUpdate(Users user) {
             user.batchUpdate(
                     Status.ofCode(this.b_stt_cd),
                     TaxType.ofCode(this.tax_type_cd),

@@ -3,7 +3,7 @@ package com.bizreport.core.dto.data;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataMethod;
 import com.bizreport.core.entity.data.DataType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -35,7 +35,7 @@ public class CardRequest {
         }
     }
 
-    public Data toEntity(User user) {
+    public Data toEntity(Users user) {
         return Data.builder()
                 .user(user)
                 .type(DataType.PURCHASE)

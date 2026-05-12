@@ -1,10 +1,10 @@
 package com.bizreport.core.dto.business;
 
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.entity.history.BizHistory;
 
 public record BizContext(
-        User user,
+        Users user,
         BizHistory before,
         BizHistory after
 ) {}

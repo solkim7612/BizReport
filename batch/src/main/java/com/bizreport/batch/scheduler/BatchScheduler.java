@@ -3,16 +3,20 @@ package com.bizreport.batch.scheduler;
 import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.batch.BatchStatus;
 import com.bizreport.core.repository.batch.BatchRepository;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Type;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -26,14 +30,14 @@ public class BatchScheduler {
     private final Job cardJob;
     private final BatchService service;
 
-    // TODO: Slack API 연동예정
-
     @Scheduled(fixedDelayString = "60000")
-    @SchedulerLock(name = "rateJobLock", lockAtLeastFor = "30s", lockAtMostFor = "5m")
+    @SchedulerLock(name = "executeBatchQueueLock", lockAtLeastFor = "10s", lockAtMostFor = "30m")
     public void executeBatch() {
         List<BatchRequest> pendingRequests = repository.findByStatusOrderByCreatedAtAsc(BatchStatus.READY);
 
-        if (pendingRequests.isEmpty()) return;
+        if (!pendingRequests.isEmpty()) {
+            log.info(">>>> 대기열 처리 시작: 총 {}건의 Batch Request 발견", pendingRequests.size());
+        }
 
         for (BatchRequest request : pendingRequests) {
             try {
@@ -46,31 +50,41 @@ public class BatchScheduler {
                         .addLong("requestId", request.getId());
 
                 if (request.getJobParameters() != null) {
-                    Type type = new TypeToken<Map<String, String>>(){}.getType();
-                    Map<String, String> paramMap = new Gson().fromJson(request.getJobParameters(), type);
+                    Map<String, String> paramMap = new Gson().fromJson(request.getJobParameters(), new TypeToken<Map<String, String>>(){}.getType());
                     paramMap.forEach(builder::addString);
                 }
 
-                Job jobToExecute;
-                if ("rateJob".equals(request.getJobName())) {
-                    jobToExecute = rateJob;
-                } else if ("cardJob".equals(request.getJobName())) {
-                    jobToExecute = cardJob;
+                Job jobToExecute = "rateJob".equals(request.getJobName()) ? rateJob : cardJob;
+
+                JobExecution execution = jobLauncher.run(jobToExecute, builder.toJobParameters());
+
+                if (execution.getStatus().isUnsuccessful()) {
+                    request.fail();
+                    log.error("배치 큐 처리 실패 (Batch Internal Error) [ID: {}]", request.getId());
                 } else {
-                    throw new IllegalArgumentException("알 수 없는 Job Name 입니다: " + request.getJobName());
+                    request.complete();
+                    log.info("배치 큐 처리 완료 [ID: {}]", request.getId());
                 }
-
-                log.info("대기 중인 배치 작업 발견. 실행 시작 - Job: {}, File: {}", request.getJobName(), request.getFileName());
-
-                jobLauncher.run(jobToExecute, builder.toJobParameters());
-
-                request.complete();
-                log.info("배치 작업 성공 - Request ID: {}", request.getId());
+                repository.saveAndFlush(request);
 
             } catch (Exception e) {
                 request.fail();
-                log.error("배치 작업 실패 - Request ID: {}", request.getId(), e);
+                repository.saveAndFlush(request);
+                log.error("배치 큐 런타임 에러 [ID: {}]: {}", request.getId(), e.getMessage());
             }
+        }
+    }
+
+    @Scheduled(cron = "0 0 * * * *")
+    @SchedulerLock(name = "zombieReaperLock", lockAtLeastFor = "1m", lockAtMostFor = "10m")
+    @Transactional
+    public void reapZombieQueues() {
+        LocalDateTime threshold = LocalDateTime.now().minusHours(1);
+
+        int recoveredCount = repository.recoverZombieRequests(threshold);
+
+        if (recoveredCount > 0) {
+            log.warn("[장애 복구] 서버 다운으로 멈춰있던 좀비 큐 {}건을 READY 상태로 롤백(재시도) 처리했습니다.", recoveredCount);
         }
     }
 
@@ -101,6 +115,16 @@ public class BatchScheduler {
             service.runReport();
         } catch (Exception e) {
             log.error("[BATCH ERROR] 월간 리포트 자동 생성 실패", e);
+        }
+    }
+
+    @Scheduled(cron = "0 0 3 1 7 ?")
+    @SchedulerLock(name = "runRateCleanupLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
+    public void runCleanup() {
+        try {
+            service.runCleanup();
+        } catch (Exception e) {
+            log.error("[BATCH ERROR] 연간 세율 데이터 정리 실패", e);
         }
     }
 }

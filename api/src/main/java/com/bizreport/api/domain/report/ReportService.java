@@ -6,14 +6,13 @@ import com.bizreport.core.dto.report.ReportResponse;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.entity.report.PeriodType;
-import com.bizreport.core.entity.report.Report;
+import com.bizreport.core.entity.report.Reports;
 import com.bizreport.core.entity.report.ReportType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.exception.ErrorCode;
 import com.bizreport.core.repository.business.RateRepository;
 import com.bizreport.core.repository.data.DataRepository;
-import com.bizreport.core.repository.report.ReportJdbcRepository;
 import com.bizreport.core.repository.report.ReportRepository;
 import com.bizreport.core.repository.business.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -37,16 +36,14 @@ public class ReportService {
     private final DataRepository dataRepo;
     private final RateRepository rateRepo;
     private final ReportRepository reportRepo;
-    private final ReportJdbcRepository jdbcRepo;
 
     private final Map<ReportType, TaxCalculator> calcs;
 
-    public ReportService(UserRepository userRepo, DataRepository dataRepo, RateRepository rateRepo, ReportRepository reportRepo, ReportJdbcRepository jdbcRepo, List<TaxCalculator> calculatorList) {
+    public ReportService(UserRepository userRepo, DataRepository dataRepo, RateRepository rateRepo, ReportRepository reportRepo, List<TaxCalculator> calculatorList) {
         this.userRepo = userRepo;
         this.dataRepo = dataRepo;
         this.rateRepo = rateRepo;
         this.reportRepo = reportRepo;
-        this.jdbcRepo = jdbcRepo;
         this.calcs = calculatorList.stream()
                 .collect(Collectors.toMap(TaxCalculator::getType, Function.identity()));
     }
@@ -56,61 +53,49 @@ public class ReportService {
         YearMonth startMon = YearMonth.parse(request.getStartMon());
         YearMonth endMon = YearMonth.parse(request.getEndMon());
 
-        LocalDate deadline = Report.getDeadline(request.getReportType(), endMon);
-        User user = getUser(request.getId());
+        LocalDate deadline = Reports.getDeadline(request.getReportType(), endMon);
+        Users user = getUser(request.getId());
         String period = request.getStartMon() + "~" + request.getEndMon();
 
         if (LocalDate.now().isAfter(deadline)) {
-            Report report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(user.getId(), request.getReportType(), PeriodType.ACCUMULATED, period)
+            Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(user.getId(), request.getReportType(), PeriodType.ACCUMULATED, period)
                     .orElseThrow(() -> new CustomException(ErrorCode.REPORT_ALREADY_CLOSED));
 
             return ReportResponse.from(report);
         }
 
-        Report report = save(new ReportCommand(user, request.getReportType(), startMon, endMon, period, PeriodType.ACCUMULATED, deadline, request.getPrepaidTax()));
+        Reports report = save(new ReportCommand(user, request.getReportType(), startMon, endMon, period, PeriodType.ACCUMULATED, deadline, request.getPrepaidTax()));
         return ReportResponse.from(report);
     }
 
-    @Transactional
-    public void generateMonthly(List<String> ids, ReportType reportType, YearMonth targetMon) {
+    @Transactional(readOnly = true)
+    public List<Reports> calculateMonthly(Users user, YearMonth targetMon) {
         LocalDate startDt = targetMon.atDay(1);
         LocalDate endDt = targetMon.atEndOfMonth();
-        String targetYear = String.valueOf(targetMon.getYear());
 
-        List<User> users = userRepo.findAllByIdIn(ids);
-        List<Data> data = dataRepo.findAllByUserIdInAndTransDtBetween(ids, startDt, endDt);
-        Map<String, List<Data>> dataMap = data.stream()
-                .collect(Collectors.groupingBy(d -> d.getUser().getId()));
+        List<Data> dataList = dataRepo.findAllByUserIdAndTransDtBetween(user.getId(), startDt, endDt);
 
-        List<String> indCd = users.stream()
-                .map(User::getIndCd)
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-        List<TaxRate> rates = rateRepo.findByIdIndCdInAndIdYear(indCd, targetYear);
+        TaxRate rate = rateRepo.findFirstByIdIndCdOrderByIdYearDesc(user.getIndCd())
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSING_INDUSTRY_CODE));
 
-        Map<String, TaxRate> rateMap = rates.stream()
-                .collect(Collectors.toMap(r -> r.getId().getIndCd(), Function.identity()));
-        List<Report> reports = new ArrayList<>();
-        TaxCalculator calculator = calcs.get(reportType);
+        List<Reports> reports = new ArrayList<>();
 
-        for (User user : users) {
-            List<Data> dataList = dataMap.getOrDefault(user.getId(), Collections.emptyList());
-            TaxRate rate = rateMap.get(user.getIndCd());
-
+        for (ReportType type : List.of(ReportType.VAT, ReportType.CIT)) {
+            TaxCalculator calculator = calcs.get(type);
             TaxCalculator.Result result = calculator.calc(user, dataList, rate, BigDecimal.ZERO);
+
             result.calc().put("dataCount", dataList.size());
 
-            Report report = Report.create(user, reportType, PeriodType.MONTHLY, targetMon.toString());
+            Reports report = Reports.create(user, type, PeriodType.MONTHLY, targetMon.toString());
             report.update(result.tax(), result.calc());
 
             reports.add(report);
         }
 
-        jdbcRepo.insert(reports);
+        return reports;
     }
 
-    private Report save(ReportCommand command) {
+    private Reports save(ReportCommand command) {
         LocalDate startDt = command.startMon().atDay(1);
         LocalDate endDt = command.endMon().atEndOfMonth();
         String targetYear = String.valueOf(command.endMon().getYear());
@@ -129,8 +114,8 @@ public class ReportService {
         result.calc().put("dataCount", dataList.size());
         if (command.deadline() != null) result.calc().put("deadline", command.deadline().toString());
 
-        Report report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(command.user().getId(), command.reportType(), command.periodType(), command.period())
-                .orElse(Report.create(command.user(), command.reportType(), command.periodType(), command.period()));
+        Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(command.user().getId(), command.reportType(), command.periodType(), command.period())
+                .orElse(Reports.create(command.user(), command.reportType(), command.periodType(), command.period()));
 
         report.update(result.tax(), result.calc());
 
@@ -145,9 +130,9 @@ public class ReportService {
         String period = isMonthly ? request.getStartMon() : request.getStartMon() + "~" + request.getEndMon();
 
         YearMonth endMon = isMonthly ? YearMonth.parse(request.getStartMon()) : YearMonth.parse(request.getEndMon());
-        LocalDate deadline = Report.getDeadline(request.getReportType(), endMon);
+        LocalDate deadline = Reports.getDeadline(request.getReportType(), endMon);
 
-        Report report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(request.getId(), request.getReportType(), periodType, period)
+        Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(request.getId(), request.getReportType(), periodType, period)
                 .orElseThrow(() -> new CustomException(ErrorCode.REPORT_NOT_FOUND));
 
         if (!LocalDate.now().isAfter(deadline)) {
@@ -164,7 +149,7 @@ public class ReportService {
     // helper method
     // ==========================================
 
-    private User getUser(String id) {
+    private Users getUser(String id) {
         return userRepo.findById(id).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 }

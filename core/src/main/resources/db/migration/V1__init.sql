@@ -1,5 +1,5 @@
 -- 1. 사용자(사업자) 테이블
-CREATE TABLE IF NOT EXISTS `USER` (
+CREATE TABLE IF NOT EXISTS `USERS` (
                                       `b_id` VARCHAR(12) PRIMARY KEY COMMENT '사업자등록번호',
     `nm` VARCHAR(255) COMMENT '상호명',
     `tax_type` ENUM('GENERAL', 'SIMPLIFIED') COMMENT '과세유형',
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS `DATA` (
     `data_method` ENUM('INVOICE', 'CARD', 'RECEIPT', 'CASH') NOT NULL COMMENT '증빙자료 유형',
     `is_e` BOOLEAN NOT NULL COMMENT '전자발행 여부',
     `is_mod` BOOLEAN NOT NULL COMMENT '수정 여부',
-    `card_num` VARCHAR(20) NOT NULL COMMENT '카드번호',
+    `card_num` VARCHAR(20) COMMENT '카드번호',
     `vendor_id` VARCHAR(12) NOT NULL COMMENT '거래처 사업자번호',
     `trans_dt` DATE NOT NULL COMMENT '거래일자',
     `net_value` DECIMAL(15, 0) COMMENT '공급가액',
@@ -40,11 +40,11 @@ CREATE TABLE IF NOT EXISTS `DATA` (
     `total_price` DECIMAL(15, 0) NOT NULL COMMENT '공급대가 (공급가액+부가세액)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`)
+    FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 4. 세금 리포트 테이블
-CREATE TABLE IF NOT EXISTS `REPORT` (
+CREATE TABLE IF NOT EXISTS `REPORTS` (
                                         `report_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `b_id` VARCHAR(12) NOT NULL COMMENT '사업자등록번호',
     `report_type` ENUM('VAT', 'CIT') NOT NULL COMMENT '신고 유형',
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `REPORT` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY `uk_report_target` (`b_id`, `report_type`, `period_type`, `period_target`),
-    FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`)
+    FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 5. 사업자 유형 이력 테이블
@@ -67,15 +67,16 @@ CREATE TABLE IF NOT EXISTS `BIZ_HISTORY` (
     `tax_type_change_dt` DATE COMMENT '과세유형 전환일자',
     `tax_type_end_dt` DATE NOT NULL DEFAULT '9999-12-31' COMMENT '해당 유형 종료일',
     `end_dt` DATE COMMENT '폐업일',
-    FOREIGN KEY (`b_id`) REFERENCES `USER`(`b_id`) ON DELETE CASCADE,
+    FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`) ON DELETE CASCADE,
     INDEX `idx_history_lookup` (`b_id`, `tax_type_change_dt`, `tax_type_end_dt`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 6. 배치 요청(Batch Request) 대기열 테이블
 CREATE TABLE IF NOT EXISTS `batch_requests` (
-                                                `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                                `request_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                                                 `job_name` VARCHAR(255) NOT NULL COMMENT '실행할 Job 이름',
     `file_name` VARCHAR(255) NOT NULL COMMENT '파일명',
+    `file_data` TEXT NOT NULL COMMENT '파일데이터',
     `job_parameters` TEXT COMMENT 'Job 파라미터 (JSON)',
     `status` ENUM('READY', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'READY' COMMENT '상태',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -1,7 +1,7 @@
 package com.bizreport.core.entity.report;
 
 import com.bizreport.core.entity.global.BaseEntity;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -19,7 +19,7 @@ import java.util.Map;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
-        name = "REPORT",
+        name = "REPORTS",
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uk_report_target",
@@ -27,7 +27,7 @@ import java.util.Map;
                 )
         }
 )
-public class Report extends BaseEntity {
+public class Reports extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "report_id")
@@ -35,7 +35,7 @@ public class Report extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "b_id", nullable = false)
-    private User user;
+    private Users user;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "report_type", nullable = false)
@@ -56,7 +56,7 @@ public class Report extends BaseEntity {
     private Map<String, Object> calc;
 
     @Builder
-    private Report(User user, ReportType reportType, PeriodType periodType, String period, BigDecimal result, Map<String, Object> calc) {
+    private Reports(Users user, ReportType reportType, PeriodType periodType, String period, BigDecimal result, Map<String, Object> calc) {
         this.user = user;
         this.reportType = reportType;
         this.periodType = periodType;
@@ -65,8 +65,8 @@ public class Report extends BaseEntity {
         this.calc = calc;
     }
 
-    public static Report create(User user, ReportType reportType, PeriodType periodType, String period) {
-        return Report.builder()
+    public static Reports create(Users user, ReportType reportType, PeriodType periodType, String period) {
+        return Reports.builder()
                 .user(user)
                 .reportType(reportType)
                 .periodType(periodType)

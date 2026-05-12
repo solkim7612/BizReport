@@ -30,6 +30,6 @@ public class BizController {
     @PostMapping(value = "/upload/rate", consumes = "multipart/form-data")
     public ResponseEntity<String> uploadRate(@RequestParam("file") MultipartFile file) {
         service.uploadRate(file);
-        return ResponseEntity.ok("세율 데이터 업로드 및 배치 시작");
+        return ResponseEntity.ok("세율 데이터 업로드 완료 및 배치 대기열 등록 성공");
     }
 }

@@ -6,13 +6,14 @@ import com.bizreport.core.entity.rate.CITRate;
 import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.TaxType;
-import com.bizreport.core.entity.user.User;
+import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,10 +28,12 @@ public class CitCalculator implements TaxCalculator {
     }
 
     @Override
-    public Result calc(User user, List<Data> dataList, TaxRate rate, BigDecimal prepaidTax) {
+    public Result calc(Users user, List<Data> dataList, TaxRate rate, BigDecimal prepaidTax) {
         if (rate == null) throw new CustomException(ErrorCode.MISSING_INDUSTRY_CODE);
 
         boolean isGeneral = (user.getTaxType() == TaxType.GENERAL);
+
+        BigDecimal expRt = rate.getExpRt().divide(new BigDecimal("100"), 3, RoundingMode.HALF_UP);
 
         BigDecimal totalSales = isGeneral
                 ? sumBy(dataList, DataType.SALES, Data::getNetValue)
@@ -40,18 +43,18 @@ public class CitCalculator implements TaxCalculator {
                 ? sumBy(dataList, DataType.PURCHASE, d -> (d.getNetValue() == null || d.getNetValue().compareTo(BigDecimal.ZERO) == 0) ? d.getTotalPrice() : d.getNetValue())
                 : sumBy(dataList, DataType.PURCHASE, Data::getTotalPrice);
 
-        BigDecimal expPurchase = totalSales.multiply(rate.getExpRt());
+        BigDecimal expPurchase = totalSales.multiply(expRt);
 
         BigDecimal totalPurchase = actPurchase.max(expPurchase);
 
         BigDecimal profit = totalSales.subtract(totalPurchase).max(BigDecimal.ZERO);
         BigDecimal beforeTax = CITRate.calcTax(profit).max(BigDecimal.ZERO);
 
-        BigDecimal tax = profit.subtract(prepaidTax);
+        BigDecimal tax = beforeTax.subtract(prepaidTax);
         boolean isRefund = tax.compareTo(BigDecimal.ZERO) < 0;
 
-        BigDecimal pay = isRefund ? BigDecimal.ZERO : tax;
-        BigDecimal refund = isRefund ? tax.abs() : BigDecimal.ZERO;
+        BigDecimal pay = isRefund ? BigDecimal.ZERO : tax.setScale(-1, RoundingMode.DOWN);
+        BigDecimal refund = isRefund ? tax.abs().setScale(-1, RoundingMode.DOWN) : BigDecimal.ZERO;
 
         Map<String, Object> calc = new HashMap<>();
         calc.put("isGeneral", isGeneral);
