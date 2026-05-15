@@ -1,6 +1,6 @@
 package com.bizreport.api.domain.data;
 
-import com.bizreport.core.dto.data.DataRequest;
+import com.bizreport.core.dto.data.AutoDataRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,14 +38,14 @@ class DataControllerTest {
     @Test
     @DisplayName("가상 세무 데이터 생성 API 테스트")
     void generate_Success() throws Exception {
-        DataRequest request = new DataRequest();
+        AutoDataRequest request = new AutoDataRequest();
         request.setId("1234567890");
         request.setYear(2025);
         request.setCount(100);
 
         String jsonRequest = objectMapper.writeValueAsString(request);
 
-        doNothing().when(service).generate(any(DataRequest.class));
+        doNothing().when(service).generate(any(AutoDataRequest.class));
 
         mockMvc.perform(post("/api/v1/data/generate/mock")
                         .contentType(MediaType.APPLICATION_JSON)

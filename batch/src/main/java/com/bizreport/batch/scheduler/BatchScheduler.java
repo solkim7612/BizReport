@@ -119,12 +119,22 @@ public class BatchScheduler {
     }
 
     @Scheduled(cron = "0 0 4 16 * ?")
-    @SchedulerLock(name = "reportLock", lockAtLeastFor = "1m", lockAtMostFor = "2h")
-    public void runReport() {
+    @SchedulerLock(name = "monReportLock", lockAtLeastFor = "1m", lockAtMostFor = "2h")
+    public void runReportMonthly() {
         try {
-            service.runReport();
+            service.runReportMonthly();
         } catch (Exception e) {
             log.error("[BATCH ERROR] 월간 리포트 생성 실패", e);
+        }
+    }
+
+    @Scheduled(cron = "0 0 4 16 1,5,7 ?")
+    @SchedulerLock(name = "accReportLock", lockAtLeastFor = "1m", lockAtMostFor = "2h")
+    public void runReportAccumulated() {
+        try {
+            service.runReportAccumulated();
+        } catch (Exception e) {
+            log.error("[BATCH ERROR] 누적 리포트 생성 실패", e);
         }
     }
 

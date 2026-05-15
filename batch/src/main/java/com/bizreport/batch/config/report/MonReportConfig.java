@@ -1,7 +1,10 @@
 package com.bizreport.batch.config.report;
 
 import com.bizreport.api.domain.report.ReportService;
+import com.bizreport.core.dto.report.ReportCommand;
 import com.bizreport.core.dto.report.ReportResponse;
+import com.bizreport.core.entity.report.PeriodType;
+import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.repository.business.UserRepository;
@@ -25,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,7 +37,7 @@ import java.util.List;
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-public class ReportConfig {
+public class MonReportConfig {
     private final JobRepository job;
     private final PlatformTransactionManager manager;
     private final UserRepository repository;
@@ -45,25 +49,25 @@ public class ReportConfig {
     private int chunk;
 
     @Bean
-    public Job reportJob() {
-        return new JobBuilder("reportJob", job)
-                .start(reportStep())
+    public Job monReportJob() {
+        return new JobBuilder("monReportJob", job)
+                .start(monReportStep())
                 .build();
     }
 
     @Bean
-    public Step reportStep() {
-        return new StepBuilder("reportStep", job)
+    public Step monReportStep() {
+        return new StepBuilder("monReportStep", job)
                 .<Users, List<ReportResponse>>chunk(chunk, manager)
-                .reader(reportReader())
-                .processor(reportProcessor())
-                .writer(reportWriter())
+                .reader(monReportReader())
+                .processor(monReportProcessor())
+                .writer(monReportWriter())
                 .build();
     }
 
-    private RepositoryItemReader<Users> reportReader() {
+    private RepositoryItemReader<Users> monReportReader() {
         return new RepositoryItemReaderBuilder<Users>()
-                .name("reportReader")
+                .name("monReportReader")
                 .repository(repository)
                 .methodName("findBySttNot")
                 .arguments(Status.CLOSED)
@@ -73,11 +77,22 @@ public class ReportConfig {
     }
 
     @Bean
-    public ItemProcessor<Users, List<ReportResponse>> reportProcessor() {
+    public ItemProcessor<Users, List<ReportResponse>> monReportProcessor() {
         return user -> {
             YearMonth lastMonth = YearMonth.now().minusMonths(1);
+            List<ReportResponse> results = new ArrayList<>();
+
             try {
-                return service.calculateMonthly(user, lastMonth);
+                ReportCommand vatCommand = new ReportCommand(
+                        user, ReportType.VAT, PeriodType.MONTHLY, lastMonth, lastMonth, BigDecimal.ZERO);
+                results.add(service.generateReport(vatCommand));
+
+                ReportCommand citCommand = new ReportCommand(
+                        user, ReportType.CIT, PeriodType.MONTHLY, lastMonth, lastMonth, BigDecimal.ZERO);
+                results.add(service.generateReport(citCommand));
+
+                return results;
+
             } catch (Exception e) {
                 log.warn("B_NO {} 리포트 생성 실패 (Skip): {}", user.getId(), e.getMessage());
                 return null;
@@ -86,7 +101,7 @@ public class ReportConfig {
     }
 
     @Bean
-    public ItemWriter<List<ReportResponse>> reportWriter() {
+    public ItemWriter<List<ReportResponse>> monReportWriter() {
         return chunkList -> {
             List<Object[]> reportArgs = new ArrayList<>();
 
@@ -103,6 +118,7 @@ public class ReportConfig {
                                 report.getTax(),
                                 calcJson
                         });
+
                     } catch (JsonProcessingException e) {
                         log.error("JSON 파싱 에러", e);
                     }

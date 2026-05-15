@@ -30,4 +30,16 @@ public class ReportResponse {
                 .calc(report.getCalc())
                 .build();
     }
+
+    public static ReportResponse of(String userId, ReportType reportType, PeriodType periodType,
+                                    String period, BigDecimal tax, Map<String, Object> calc) {
+        return ReportResponse.builder()
+                .userId(userId)
+                .reportType(reportType)
+                .periodType(periodType)
+                .period(period)
+                .tax(tax)
+                .calc(calc)
+                .build();
+    }
 }

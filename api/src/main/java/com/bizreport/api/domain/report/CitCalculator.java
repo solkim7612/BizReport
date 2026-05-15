@@ -7,8 +7,6 @@ import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.TaxType;
 import com.bizreport.core.entity.user.Users;
-import com.bizreport.core.entity.exception.CustomException;
-import com.bizreport.core.entity.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -29,8 +27,6 @@ public class CitCalculator implements TaxCalculator {
 
     @Override
     public Result calc(Users user, List<Data> dataList, TaxRate rate, BigDecimal prepaidTax) {
-        if (rate == null) throw new CustomException(ErrorCode.MISSING_INDUSTRY_CODE);
-
         boolean isGeneral = (user.getTaxType() == TaxType.GENERAL);
 
         BigDecimal expRt = rate.getExpRt().divide(new BigDecimal("100"), 3, RoundingMode.HALF_UP);

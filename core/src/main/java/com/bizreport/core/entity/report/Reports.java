@@ -91,4 +91,15 @@ public class Reports extends BaseEntity {
         }
         throw new CustomException(ErrorCode.INVALID_REPORT_TYPE);
     }
+
+    public static LocalDate getDeadline(ReportType reportType, YearMonth startMon, YearMonth endMon) {
+        LocalDate start = getDeadline(reportType, startMon);
+        LocalDate end = getDeadline(reportType, endMon);
+
+        if (!start.equals(end)) {
+            throw new CustomException(ErrorCode.INVALID_REPORT_DEADLINE);
+        }
+
+        return end;
+    }
 }

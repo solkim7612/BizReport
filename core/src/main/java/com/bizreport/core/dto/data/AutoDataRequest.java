@@ -9,13 +9,15 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Getter
 @Setter
-public class DataRequest {
+public class AutoDataRequest {
     private String id;
-    private int year;
+    private String startMon;
+    private String endMon;
     private int count;
 
     public Data toEntity(Users user) {
@@ -39,10 +41,20 @@ public class DataRequest {
                     random.nextInt(10000), random.nextInt(10000), random.nextInt(10000), random.nextInt(10000));
         }
 
-        int randomMonth = random.nextInt(12) + 1;
-        int randomDay = random.nextInt(28) + 1;
+        LocalDate start = YearMonth.parse(this.startMon).atDay(1);
+        LocalDate end = YearMonth.parse(this.endMon).atEndOfMonth();
 
-        LocalDate transDt = LocalDate.of(this.year, randomMonth, randomDay);
+        long startEpochDay = start.toEpochDay();
+        long endEpochDay = end.toEpochDay();
+
+        long randomDay;
+        if (startEpochDay == endEpochDay) {
+            randomDay = startEpochDay;
+        } else {
+            randomDay = random.nextLong(startEpochDay, endEpochDay + 1);
+        }
+
+        LocalDate transDt = LocalDate.ofEpochDay(randomDay);
 
         long randomNetValue = (random.nextInt(100) + 1) * 10000L;
         BigDecimal netValue = BigDecimal.valueOf(randomNetValue);

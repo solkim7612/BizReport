@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.YearMonth;
 
 @Getter
 @Setter
@@ -17,5 +18,20 @@ public class ReportRequest {
 
     public BigDecimal getPrepaidTax() {
         return prepaidTax != null ? prepaidTax : BigDecimal.ZERO;
+    }
+
+    public YearMonth getStartYearMonth() {
+        return (startMon != null && !startMon.isBlank()) ? YearMonth.parse(startMon) : null;
+    }
+
+    public YearMonth getEndYearMonth() {
+        return (endMon != null && !endMon.isBlank()) ? YearMonth.parse(endMon) : null;
+    }
+
+    public String getPeriod() {
+        if (endMon == null || endMon.isBlank() || startMon.equals(endMon)) {
+            return startMon;
+        }
+        return startMon + "~" + endMon;
     }
 }

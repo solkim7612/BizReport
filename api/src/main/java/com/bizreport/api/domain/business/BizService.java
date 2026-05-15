@@ -34,6 +34,7 @@ public class BizService {
     public void register(RegisterRequest request) {
         try {
             StatusResponse.Data data = client.status(request.getId());
+
             String indNm = getIndNm(request.getIndCd());
 
             Users user = userRepo.findById(request.getId())
@@ -42,6 +43,8 @@ public class BizService {
             historyRepo.save(user.toHistEntity(user));
             log.info("사업자 등록 완료: {}", user.getId());
 
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
             log.error("국세청 상태 조회 API 실패: {}", request.getId(), e);
             throw new CustomException(ErrorCode.EXTERNAL_API_FAILED, e);
@@ -82,9 +85,7 @@ public class BizService {
     // ==========================================
 
     private String getIndNm(String indCd) {
-        return rateRepo.findFirstByIdIndCdOrderByIdYearDesc(indCd)
-                .map(TaxRate::getIndNm)
-                .orElse("null");
+        return rateRepo.findIndustryNameByCode(indCd).orElse("미분류 업종");
     }
 
     private void validate(MultipartFile file, String extension) {

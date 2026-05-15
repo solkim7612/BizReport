@@ -30,12 +30,18 @@ public class APIClient {
     @Value("${api.nts.key}")
     private String key;
 
-    public List<StatusResponse.Data> status(List<String> bNoList) {
+    public StatusResponse.Data status(String id) {
+        return status(Collections.singletonList(id)).stream()
+                .findFirst()
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    public List<StatusResponse.Data> status(List<String> userList) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 
-        StatusRequest request = new StatusRequest(bNoList);
+        StatusRequest request = new StatusRequest(userList);
         HttpEntity<StatusRequest> entity = new HttpEntity<>(request, headers);
 
         try {
@@ -59,7 +65,7 @@ public class APIClient {
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
-            log.error("국세청 상태조회 API 통신 실패. b_no count: {}", bNoList.size(), e);
+            log.error("국세청 상태조회 API 통신 실패. b_no count: {}", userList.size(), e);
             throw new CustomException(ErrorCode.EXTERNAL_API_FAILED, e);
         }
     }

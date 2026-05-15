@@ -19,11 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -49,91 +46,70 @@ public class ReportService {
     }
 
     @Transactional
-    public ReportResponse generateAccumulated(ReportRequest request) {
-        YearMonth startMon = YearMonth.parse(request.getStartMon());
-        YearMonth endMon = YearMonth.parse(request.getEndMon());
+    public ReportResponse batchAcc(ReportRequest request) {
+        YearMonth startMon = request.getStartYearMonth();
+        YearMonth endMon = request.getEndYearMonth();
+        LocalDate deadline = Reports.getDeadline(request.getReportType(), startMon, endMon);
 
-        LocalDate deadline = Reports.getDeadline(request.getReportType(), endMon);
         Users user = getUser(request.getId());
-        String period = request.getStartMon() + "~" + request.getEndMon();
+        String period = request.getPeriod();
 
         if (LocalDate.now().isAfter(deadline)) {
             Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(user.getId(), request.getReportType(), PeriodType.ACCUMULATED, period)
                     .orElseThrow(() -> new CustomException(ErrorCode.REPORT_ALREADY_CLOSED));
-
             return ReportResponse.from(report);
         }
 
-        Reports report = save(new ReportCommand(user, request.getReportType(), startMon, endMon, period, PeriodType.ACCUMULATED, deadline, request.getPrepaidTax()));
-        return ReportResponse.from(report);
+        ReportCommand command = new ReportCommand(user, request.getReportType(), PeriodType.ACCUMULATED, startMon, endMon, request.getPrepaidTax());
+        ReportResponse response = generateReport(command);
+
+        Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(user.getId(), request.getReportType(), PeriodType.ACCUMULATED, period)
+                .orElse(Reports.create(user, request.getReportType(), PeriodType.ACCUMULATED, period));
+
+        report.update(response.getTax(), response.getCalc());
+        reportRepo.save(report);
+
+        return response;
     }
 
+    /**
+     * Event/Time-Driven Batch
+     */
     @Transactional(readOnly = true)
-    public List<ReportResponse> calculateMonthly(Users user, YearMonth targetMon) {
-        LocalDate startDt = targetMon.atDay(1);
-        LocalDate endDt = targetMon.atEndOfMonth();
-
-        List<Data> dataList = dataRepo.findAllByUserIdAndTransDtBetween(user.getId(), startDt, endDt);
-
-        TaxRate rate = rateRepo.findFirstByIdIndCdOrderByIdYearDesc(user.getIndCd())
-                .orElseThrow(() -> new CustomException(ErrorCode.MISSING_INDUSTRY_CODE));
-
-        List<ReportResponse> reports = new ArrayList<>();
-
-        for (ReportType type : List.of(ReportType.VAT, ReportType.CIT)) {
-            TaxCalculator calculator = calcs.get(type);
-            TaxCalculator.Result result = calculator.calc(user, dataList, rate, BigDecimal.ZERO);
-
-            result.calc().put("dataCount", dataList.size());
-
-            reports.add(ReportResponse.builder()
-                    .userId(user.getId())
-                    .reportType(type)
-                    .periodType(PeriodType.MONTHLY)
-                    .period(targetMon.toString())
-                    .tax(result.tax())
-                    .calc(result.calc())
-                    .build());
-        }
-
-        return reports;
-    }
-
-    private Reports save(ReportCommand command) {
+    public ReportResponse generateReport(ReportCommand command) {
         LocalDate startDt = command.startMon().atDay(1);
         LocalDate endDt = command.endMon().atEndOfMonth();
-        String targetYear = String.valueOf(command.endMon().getYear());
-
-        TaxCalculator calculator = calcs.get(command.reportType());
-        if (calculator == null) throw new CustomException(ErrorCode.INVALID_REPORT_TYPE);
 
         List<Data> dataList = dataRepo.findAllByUserIdAndTransDtBetween(command.user().getId(), startDt, endDt);
-        List<TaxRate> rates = rateRepo.findByIdIndCdInAndIdYear(Collections.singletonList(command.user().getIndCd()), targetYear);
-        TaxRate rate = rates.stream()
-                .findFirst()
+
+        TaxRate rate = rateRepo.findFirstByIdIndCdOrderByIdYearDesc(command.user().getIndCd())
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSING_INDUSTRY_CODE));
 
-        TaxCalculator.Result result = calculator.calc(command.user(), dataList, rate, command.prepaidTax());
+        TaxCalculator calculator = calcs.get(command.reportType());
+
+        TaxCalculator.Result result = calculator.calc(
+                command.user(),
+                dataList,
+                rate,
+                command.getPrepaidTax()
+        );
 
         result.calc().put("dataCount", dataList.size());
-        if (command.deadline() != null) result.calc().put("deadline", command.deadline().toString());
 
-        Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(command.user().getId(), command.reportType(), command.periodType(), command.period())
-                .orElse(Reports.create(command.user(), command.reportType(), command.periodType(), command.period()));
+        if (command.periodType() == PeriodType.ACCUMULATED) {
+            result.calc().put("deadline", Reports.getDeadline(command.reportType(), command.startMon(), command.endMon()).toString());
+        }
 
-        report.update(result.tax(), result.calc());
-
-        return reportRepo.save(report);
+        return ReportResponse.of(command.user().getId(), command.reportType(), command.periodType(), command.period(), result.tax(), result.calc());
     }
 
     @Transactional(readOnly = true)
     public ReportResponse getReport(ReportRequest request) {
         boolean isMonthly = (request.getEndMon() == null || request.getEndMon().isBlank());
-
         PeriodType periodType = isMonthly ? PeriodType.MONTHLY : PeriodType.ACCUMULATED;
-        String period = isMonthly ? request.getStartMon() : request.getStartMon() + "~" + request.getEndMon();
 
-        YearMonth endMon = isMonthly ? YearMonth.parse(request.getStartMon()) : YearMonth.parse(request.getEndMon());
+        String period = request.getPeriod();
+        YearMonth endMon = isMonthly ? request.getStartYearMonth() : request.getEndYearMonth();
         LocalDate deadline = Reports.getDeadline(request.getReportType(), endMon);
 
         Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(request.getId(), request.getReportType(), periodType, period)

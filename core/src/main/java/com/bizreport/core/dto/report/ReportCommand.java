@@ -5,10 +5,21 @@ import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.Users;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.YearMonth;
 
 public record ReportCommand(
-        Users user, ReportType reportType, YearMonth startMon, YearMonth endMon,
-        String period, PeriodType periodType, LocalDate deadline, BigDecimal prepaidTax
-) {}
+        Users user,
+        ReportType reportType,
+        PeriodType periodType,
+        YearMonth startMon,
+        YearMonth endMon,
+        BigDecimal prepaidTax
+) {
+    public String period() {
+        return (periodType == PeriodType.MONTHLY) ? startMon.toString() : startMon + "~" + endMon;
+    }
+
+    public BigDecimal getPrepaidTax() {
+        return prepaidTax != null ? prepaidTax : BigDecimal.ZERO;
+    }
+}

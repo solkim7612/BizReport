@@ -16,7 +16,8 @@ public class BatchService {
     private final JobLauncher jobLauncher;
     private final Job statusUpdateJob;
     private final Job statusClosedJob;
-    private final Job reportJob;
+    private final Job monReportJob;
+    private final Job accReportJob;
     private final Job rateDeleteJob;
     private final Job dataClosedJob;
 
@@ -30,9 +31,14 @@ public class BatchService {
         executeJob(statusClosedJob);
     }
 
-    public void runReport() {
+    public void runReportMonthly() {
         log.info("BATCH START: 월간 리포트 자동 생성");
-        executeJob(reportJob);
+        executeJob(monReportJob);
+    }
+
+    public void runReportAccumulated() {
+        log.info("BATCH START: 누적 리포트 자동 생성");
+        executeJob(accReportJob);
     }
 
     public void runDeleteRate() {
@@ -45,9 +51,9 @@ public class BatchService {
         executeJob(dataClosedJob);
     }
 
-    @CacheEvict(value = "taxRates", allEntries = true)
+    @CacheEvict(value = {"taxRate", "indNm"}, allEntries = true)
     public void clearRateCache() {
-        log.info(">>>> [Cache Evict] 새로운 세율이 적용되어 메모리의 세율 캐시를 모두 초기화합니다.");
+        log.info(">>>> [Cache Evict] 새로운 세율이 적용되어 메모리의 세율 및 업종명 캐시를 모두 초기화합니다.");
     }
 
     private void executeJob(Job job) {

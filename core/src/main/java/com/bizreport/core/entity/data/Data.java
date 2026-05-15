@@ -72,4 +72,10 @@ public class Data extends BaseEntity {
         this.vatValue = vatValue;
         this.totalPrice = totalPrice;
     }
+
+    public void update(BigDecimal netValue, BigDecimal vatValue) {
+        this.netValue = netValue;
+        this.vatValue = vatValue;
+        this.totalPrice = netValue.add(vatValue);
+    }
 }

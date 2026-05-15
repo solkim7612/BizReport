@@ -17,6 +17,8 @@ public enum ErrorCode {
 
     // [Report]
     INVALID_REPORT_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 리포트 유형입니다."),
+    INVALID_REPORT_DEADLINE(HttpStatus.BAD_REQUEST, "마감기한이 맞지 않습니다."),
+    INVALID_REPORT_PERIOD(HttpStatus.BAD_REQUEST, "리포트 조회기간이 맞지 않습니다."),
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 기간의 리포트가 생성되지 않았습니다. 먼저 생성을 요청해주세요."),
 
     // [Batch]

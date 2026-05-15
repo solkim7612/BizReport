@@ -1,10 +1,10 @@
 package com.bizreport.api.domain.data;
 
-import com.bizreport.core.dto.data.CardUploadRequest;
-import com.bizreport.core.dto.data.DataRequest;
+import com.bizreport.core.dto.data.*;
 import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataMethod;
+import com.bizreport.core.entity.data.DataType;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.report.Reports;
 import com.bizreport.core.entity.user.Users;
@@ -15,12 +15,14 @@ import com.bizreport.core.repository.data.DataJdbcRepository;
 import com.bizreport.core.repository.business.UserRepository;
 import com.bizreport.core.repository.data.DataRepository;
 import com.google.gson.Gson;
+import com.google.protobuf.ByteString;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.google.cloud.vision.v1.*;
+import com.google.protobuf.ByteString;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -40,8 +42,113 @@ public class DataService {
     private final DataJdbcRepository jdbcRepo;
     private final BatchRepository batchRepo;
 
+    @Transactional(readOnly = true)
+    public List<DataResponse> getData(String id, DataReviewRequest request) {
+        LocalDate startDt = request.getStartYearMonth().atDay(1);
+        LocalDate endDt = request.getEndYearMonth().atEndOfMonth();
+
+        return dataRepo.findFilteredData(
+                        id,
+                        startDt,
+                        endDt,
+                        request.getType(),
+                        request.getMethod()
+                ).stream()
+                .map(DataResponse::from)
+                .toList();
+    }
+
+//    @Transactional
+//    public void createData(ManualDataRequest request) {
+//        Users user = userRepo.findById(request.getId())
+//                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+//
+//        YearMonth targetMon = YearMonth.from(request.getTransDt());
+//        LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, targetMon);
+//
+//        if (LocalDate.now().isAfter(vatDeadline)) {
+//            throw new CustomException(ErrorCode.REPORT_ALREADY_CLOSED);
+//        }
+//
+//        Data data = request.toEntity(user);
+//
+//        dataRepo.save(data);
+//        log.info("B_NO {} : 수기 세무 데이터 1건 추가 완료", user.getId());
+//    }
+
+    public ManualDataRequest extractReceipt(MultipartFile file) {
+        validate(file, ".jpg", ".jpeg", ".png"); // 확장자 검증 로직 약간 수정 필요
+
+        try {
+            ByteString imgBytes = ByteString.readFrom(file.getInputStream());
+            Image img = Image.newBuilder().setContent(imgBytes).build();
+            Feature feat = Feature.newBuilder().setType(Feature.Type.DOCUMENT_TEXT_DETECTION).build();
+            AnnotateImageRequest request = AnnotateImageRequest.newBuilder()
+                    .addFeatures(feat)
+                    .setImage(img)
+                    .build();
+
+            try (ImageAnnotatorClient client = ImageAnnotatorClient.create()) {
+                BatchAnnotateImagesResponse response = client.batchAnnotateImages(List.of(request));
+                AnnotateImageResponse res = response.getResponsesList().get(0);
+
+                if (res.hasError()) {
+                    throw new CustomException(ErrorCode.EXTERNAL_API_FAILED, "OCR API 에러: " + res.getError().getMessage());
+                }
+
+                String rawText = res.getFullTextAnnotation().getText();
+                log.info("추출된 영수증 텍스트: \n{}", rawText);
+
+                return parseReceipt(rawText);
+            }
+
+        } catch (Exception e) {
+            log.error("OCR 처리 중 오류 발생", e);
+            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
+        }
+    }
+
+    private ManualDataRequest parseReceipt(String rawText) {
+        ManualDataRequest request = new ManualDataRequest();
+
+        request.setMethod(DataMethod.CARD);
+        request.setType(DataType.PURCHASE);
+
+        // TODO: 정규표현식(Regex)을 사용하여 rawText에서 아래 항목들을 추출해야 합니다.
+        // 1. 날짜 추출 (예: 2024-05-12) -> request.setTransDt(...)
+        // 2. 합계 금액 추출 (예: 15,000) -> request.setNetValue(...) / request.setVatValue(...)
+        // 3. 사업자번호 추출 -> request.setVendorId(...)
+
+        return request;
+    }
+
     @Transactional
-    public void generate(DataRequest request) {
+    public void updateData(Long id, DataUpdateRequest request) {
+        Data data = dataRepo.findById(id)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+
+        if (!data.isMod()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        data.update(request.netValue(), request.vatValue());
+        log.info("데이터 금액 수정 완료: dataId={}", id);
+    }
+
+    @Transactional
+    public void deleteData(Long id) {
+        Data data = dataRepo.findById(id)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+
+        if (!data.isMod()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        dataRepo.delete(data);
+    }
+
+    @Transactional
+    public void generate(AutoDataRequest request) {
         Users user = userRepo.findById(request.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -52,23 +159,25 @@ public class DataService {
 
         jdbcRepo.insert(dataList);
 
-        log.info("B_NO {} : 가상 세무 데이터 {}건 생성 및 적재 완료 (귀속연도: {})",
-                user.getId(), request.getCount(), request.getYear());
+        log.info("B_NO {} : 가상 세무 데이터 {}건 생성 및 적재 완료 (기간: {} ~ {})",
+                user.getId(), request.getCount(), request.getStartMon(), request.getEndMon());
     }
 
     public void uploadCard(CardUploadRequest request) {
         validate(request.getFile(), ".csv");
 
-        YearMonth endMon = YearMonth.parse(request.getEndMon());
-        LocalDate startDt = YearMonth.parse(request.getStartMon()).atDay(1);
+        YearMonth startMon = request.getStartYearMonth();
+        YearMonth endMon = request.getEndYearMonth();
+
+        LocalDate startDt = startMon.atDay(1);
         LocalDate endDt = endMon.atEndOfMonth();
 
-        LocalDate citDeadline = Reports.getDeadline(ReportType.CIT, endMon);
+        LocalDate citDeadline = Reports.getDeadline(ReportType.CIT, startMon, endMon);
         if (LocalDate.now().isAfter(citDeadline)) {
             throw new CustomException(ErrorCode.REPORT_ALREADY_CLOSED);
         }
 
-        LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, endMon);
+        LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, startMon, endMon);
         boolean isPassed = LocalDate.now().isAfter(vatDeadline);
         boolean ignoreVat = false;
 
