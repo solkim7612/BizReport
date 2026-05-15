@@ -1,5 +1,7 @@
 package com.bizreport.core.entity.report;
 
+import com.bizreport.core.entity.exception.CustomException;
+import com.bizreport.core.entity.exception.ErrorCode;
 import com.bizreport.core.entity.global.BaseEntity;
 import com.bizreport.core.entity.user.Users;
 import jakarta.persistence.*;
@@ -87,6 +89,6 @@ public class Reports extends BaseEntity {
         } else if (reportType == ReportType.CIT) {
             return LocalDate.of(endMonth.getYear() + 1, 5, 31);
         }
-        throw new IllegalArgumentException("지원하지 않는 리포트 타입입니다.");
+        throw new CustomException(ErrorCode.INVALID_REPORT_TYPE);
     }
 }

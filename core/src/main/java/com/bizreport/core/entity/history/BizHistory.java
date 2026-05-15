@@ -26,10 +26,6 @@ public class BizHistory {
     private Users user;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "b_stt", nullable = false)
-    private Status stt;
-
-    @Enumerated(EnumType.STRING)
     @Column(name = "tax_type", nullable = false)
     private TaxType taxType;
 
@@ -39,21 +35,12 @@ public class BizHistory {
     @Column(name = "tax_type_end_dt")
     private LocalDate taxTypeEndDt;
 
-    @Column(name = "end_dt")
-    private LocalDate endDt;
-
     @Builder
-    public BizHistory(Long id, Users user, Status stt, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate taxTypeEndDt, LocalDate endDt) {
+    public BizHistory(Long id, Users user, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate taxTypeEndDt) {
         this.id = id;
         this.user = user;
-        this.stt = stt;
         this.taxType = taxType;
         this.taxTypeChangeDt = taxTypeChangeDt;
         this.taxTypeEndDt = (taxTypeEndDt == null) ? LocalDate.of(9999, 12, 31) : taxTypeEndDt;
-        this.endDt=endDt;
-    }
-
-    public void close(LocalDate taxTypeChangeDt) {
-        this.taxTypeEndDt = taxTypeChangeDt.minusDays(1);
     }
 }

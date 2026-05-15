@@ -17,11 +17,12 @@ CREATE TABLE IF NOT EXISTS `TAX_RATE` (
                                           `ind_cd` VARCHAR(10) NOT NULL COMMENT '업종코드',
     `target_year` VARCHAR(4) NOT NULL COMMENT '귀속연도',
     `ind_nm` VARCHAR(10) COMMENT '업종명',
-    `vat_rt` DECIMAL(5, 4) NOT NULL COMMENT '업종별 부가가치율',
+    `vat_rt` ENUM('RT_15', 'RT_20', 'RT_25', 'RT_40', 'RT_30') NOT NULL COMMENT '업종별 부가가치율',
     `exp_rt` DECIMAL(5, 4) NOT NULL COMMENT '단순경비율',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`ind_cd`, `target_year`)
+    PRIMARY KEY (`ind_cd`, `target_year`),
+    INDEX `idx_tax_rate_year` (`target_year`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 3. 가상 세무 데이터(영수증) 테이블
@@ -31,7 +32,7 @@ CREATE TABLE IF NOT EXISTS `DATA` (
     `data_type` ENUM('SALES', 'PURCHASE') NOT NULL COMMENT '데이터 유형',
     `data_method` ENUM('INVOICE', 'CARD', 'RECEIPT', 'CASH') NOT NULL COMMENT '증빙자료 유형',
     `is_e` BOOLEAN NOT NULL COMMENT '전자발행 여부',
-    `is_mod` BOOLEAN NOT NULL COMMENT '수정 여부',
+    `is_mod` BOOLEAN COMMENT '수정 여부',
     `card_num` VARCHAR(20) COMMENT '카드번호',
     `vendor_id` VARCHAR(12) NOT NULL COMMENT '거래처 사업자번호',
     `trans_dt` DATE NOT NULL COMMENT '거래일자',
@@ -62,11 +63,9 @@ CREATE TABLE IF NOT EXISTS `REPORTS` (
 CREATE TABLE IF NOT EXISTS `BIZ_HISTORY` (
                                `h_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `b_id` VARCHAR(12) NOT NULL COMMENT '사업자등록번호',
-    `b_stt` ENUM('CONTINUED', 'TEMP_CLOSED', 'CLOSED') NOT NULL DEFAULT 'CONTINUED' COMMENT '사업 상태',
     `tax_type` ENUM('GENERAL', 'SIMPLIFIED') NOT NULL COMMENT '부가가치세 신고유형',
     `tax_type_change_dt` DATE COMMENT '과세유형 전환일자',
     `tax_type_end_dt` DATE NOT NULL DEFAULT '9999-12-31' COMMENT '해당 유형 종료일',
-    `end_dt` DATE COMMENT '폐업일',
     FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`) ON DELETE CASCADE,
     INDEX `idx_history_lookup` (`b_id`, `tax_type_change_dt`, `tax_type_end_dt`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

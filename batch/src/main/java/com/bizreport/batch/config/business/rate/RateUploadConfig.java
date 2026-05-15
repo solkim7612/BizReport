@@ -1,6 +1,6 @@
-package com.bizreport.batch.config.business;
+package com.bizreport.batch.config.business.rate;
 
-import com.bizreport.core.dto.business.RateRequest;
+import com.bizreport.core.dto.business.RateFileRequest;
 import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.repository.batch.BatchRepository;
@@ -31,7 +31,7 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-public class RateConfig {
+public class RateUploadConfig {
     private final JobRepository job;
     private final PlatformTransactionManager manager;
     private final DataSource dataSource;
@@ -41,18 +41,18 @@ public class RateConfig {
     private int chunk;
 
     @Bean
-    public Job rateJob() {
-        return new JobBuilder("rateJob", job)
-                .start(rateStep())
+    public Job rateUploadJob() {
+        return new JobBuilder("rateUploadJob", job)
+                .start(rateUploadStep())
                 .build();
     }
 
     @Bean
-    public Step rateStep() {
-        return new StepBuilder("rateStep", job)
-                .<RateRequest, TaxRate>chunk(chunk, manager)
-                .reader(rateReader(null, null))
-                .processor(RateRequest::toEntity)
+    public Step rateUploadStep() {
+        return new StepBuilder("rateUploadStep", job)
+                .<RateFileRequest, TaxRate>chunk(chunk, manager)
+                .reader(rateFileReader(null, null))
+                .processor(RateFileRequest::toEntity)
                 .writer(rateWriter())
                 .faultTolerant()
                 .skip(FlatFileParseException.class)
@@ -63,7 +63,7 @@ public class RateConfig {
 
     @Bean
     @StepScope
-    public FlatFileItemReader<RateRequest> rateReader(
+    public FlatFileItemReader<RateFileRequest> rateFileReader(
             @Value("#{jobParameters['requestId']}") Long requestId,
             @Value("#{jobParameters['fileName']}") String fileName) {
 
@@ -77,15 +77,15 @@ public class RateConfig {
             }
         };
 
-        return new FlatFileItemReaderBuilder<RateRequest>()
-                .name("rateReader")
+        return new FlatFileItemReaderBuilder<RateFileRequest>()
+                .name("rateFileReader")
                 .resource(resource)
                 .encoding("UTF-8")
                 .delimited()
                 .names("year", "indCd", "indNm", "category1", "category2", "category3", "msg", "expRt", "overExpRt", "stndExpRt")
                 .linesToSkip(3)
                 .fieldSetMapper(new BeanWrapperFieldSetMapper<>() {{
-                    setTargetType(RateRequest.class);
+                    setTargetType(RateFileRequest.class);
                 }})
                 .build();
     }

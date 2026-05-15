@@ -57,18 +57,9 @@ public class Users extends BaseEntity {
     public BizHistory toHistEntity(Users user) {
         return BizHistory.builder()
                 .user(user)
-                .stt(stt)
                 .taxType(taxType)
                 .taxTypeChangeDt(taxTypeChangeDt)
-                .endDt(endDt)
                 .build();
-    }
-
-    public void batchUpdate(Status stt, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate endDt) {
-        this.stt = stt;
-        this.taxType = taxType;
-        this.taxTypeChangeDt = taxTypeChangeDt;
-        this.endDt = endDt;
     }
 
     public void update(String nm, String indCd, String indNm) {

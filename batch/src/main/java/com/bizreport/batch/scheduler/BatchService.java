@@ -6,6 +6,7 @@ import org.springframework.batch.core.JobParametersBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -13,19 +14,20 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class BatchService {
     private final JobLauncher jobLauncher;
-    private final Job updateJob;
+    private final Job statusUpdateJob;
+    private final Job statusClosedJob;
     private final Job reportJob;
-    private final Job closedJob;
-    private final Job rateCleanupJob;
+    private final Job rateDeleteJob;
+    private final Job dataClosedJob;
 
-    public void runUpdate() {
+    public void runUpdateStatus() {
         log.info("BATCH START: 분기별 국세청 상태 전체 동기화");
-        executeJob(updateJob);
+        executeJob(statusUpdateJob);
     }
 
-    public void runClosed() {
+    public void runClosedStatus() {
         log.info("BATCH START: 폐업일 경과 사업자 상태 자동 전환");
-        executeJob(closedJob);
+        executeJob(statusClosedJob);
     }
 
     public void runReport() {
@@ -33,9 +35,19 @@ public class BatchService {
         executeJob(reportJob);
     }
 
-    public void runCleanup() {
-        log.info("BATCH START: 연간 세율 데이터 정리");
-        executeJob(rateCleanupJob);
+    public void runDeleteRate() {
+        log.info("BATCH START: 지난 세율 데이터 정리");
+        executeJob(rateDeleteJob);
+    }
+
+    public void runClosedData() {
+        log.info("BATCH START: 신고 마감기한 경과 세무 데이터 잠금");
+        executeJob(dataClosedJob);
+    }
+
+    @CacheEvict(value = "taxRates", allEntries = true)
+    public void clearRateCache() {
+        log.info(">>>> [Cache Evict] 새로운 세율이 적용되어 메모리의 세율 캐시를 모두 초기화합니다.");
     }
 
     private void executeJob(Job job) {

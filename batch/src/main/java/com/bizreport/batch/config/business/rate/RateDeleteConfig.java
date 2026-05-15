@@ -1,4 +1,4 @@
-package com.bizreport.batch.config.business;
+package com.bizreport.batch.config.business.rate;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,22 +18,22 @@ import java.time.LocalDate;
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-public class RateCleanupConfig {
+public class RateDeleteConfig {
 
     private final JobRepository job;
     private final PlatformTransactionManager manager;
     private final JdbcTemplate template;
 
     @Bean
-    public Job rateCleanupJob() {
-        return new JobBuilder("rateCleanupJob", job)
-                .start(rateCleanupStep())
+    public Job rateDeleteJob() {
+        return new JobBuilder("rateDeleteJob", job)
+                .start(rateDeleteStep())
                 .build();
     }
 
     @Bean
-    public Step rateCleanupStep() {
-        return new StepBuilder("rateCleanupStep", job)
+    public Step rateDeleteStep() {
+        return new StepBuilder("rateDeleteStep", job)
                 .tasklet((contribution, chunkContext) -> {
                     int targetYear = LocalDate.now().getYear() - 5;
                     String targetYearStr = String.valueOf(targetYear);

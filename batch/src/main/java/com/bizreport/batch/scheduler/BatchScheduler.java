@@ -26,20 +26,23 @@ import java.util.Map;
 public class BatchScheduler {
     private final BatchRepository repository;
     private final JobLauncher jobLauncher;
-    private final Job rateJob;
-    private final Job cardJob;
+    private final Job rateUploadJob;
+    private final Job cardUploadJob;
     private final BatchService service;
 
+    /**
+     * Event-Driven Batch
+     */
     @Scheduled(fixedDelayString = "60000")
-    @SchedulerLock(name = "executeBatchQueueLock", lockAtLeastFor = "10s", lockAtMostFor = "30m")
-    public void executeBatch() {
-        List<BatchRequest> pendingRequests = repository.findByStatusOrderByCreatedAtAsc(BatchStatus.READY);
+    @SchedulerLock(name = "queueLock", lockAtLeastFor = "10s", lockAtMostFor = "30m")
+    public void runQueue() {
+        List<BatchRequest> requests = repository.findByStatusOrderByCreatedAtAsc(BatchStatus.READY);
 
-        if (!pendingRequests.isEmpty()) {
-            log.info(">>>> 대기열 처리 시작: 총 {}건의 Batch Request 발견", pendingRequests.size());
+        if (!requests.isEmpty()) {
+            log.info(">>>> 대기열 처리 시작: 총 {}건의 Batch Request 발견", requests.size());
         }
 
-        for (BatchRequest request : pendingRequests) {
+        for (BatchRequest request : requests) {
             try {
                 request.startProcessing();
                 repository.saveAndFlush(request);
@@ -54,7 +57,7 @@ public class BatchScheduler {
                     paramMap.forEach(builder::addString);
                 }
 
-                Job jobToExecute = "rateJob".equals(request.getJobName()) ? rateJob : cardJob;
+                Job jobToExecute = "rateJob".equals(request.getJobName()) ? rateUploadJob : cardUploadJob;
 
                 JobExecution execution = jobLauncher.run(jobToExecute, builder.toJobParameters());
 
@@ -64,6 +67,10 @@ public class BatchScheduler {
                 } else {
                     request.complete();
                     log.info("배치 큐 처리 완료 [ID: {}]", request.getId());
+
+                    if ("rateJob".equals(request.getJobName())) {
+                        service.clearRateCache();
+                    }
                 }
                 repository.saveAndFlush(request);
 
@@ -76,9 +83,9 @@ public class BatchScheduler {
     }
 
     @Scheduled(cron = "0 0 * * * *")
-    @SchedulerLock(name = "zombieReaperLock", lockAtLeastFor = "1m", lockAtMostFor = "10m")
+    @SchedulerLock(name = "reapQueueLock", lockAtLeastFor = "1m", lockAtMostFor = "10m")
     @Transactional
-    public void reapZombieQueues() {
+    public void reapQueue() {
         LocalDateTime threshold = LocalDateTime.now().minusHours(1);
 
         int recoveredCount = repository.recoverZombieRequests(threshold);
@@ -88,43 +95,56 @@ public class BatchScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 3 11 1,4,7,10 ?")
-    @SchedulerLock(name = "runUpdateLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
-    public void runUpdate() {
+    /**
+     * Time-Driven Batch
+     */
+    @Scheduled(cron = "0 0 2 11 1,4,7,10 ?")
+    @SchedulerLock(name = "updateStatusLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
+    public void runUpdateStatus() {
         try {
-            service.runUpdate();
+            service.runUpdateStatus();
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 분기별 국세청 동기화 실패", e);
+            log.error("[BATCH ERROR] 분기별 국세청 상태 동기화 실패", e);
         }
     }
 
-    @Scheduled(cron = "0 0 3 * * *")
-    @SchedulerLock(name = "runClosedLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
-    public void runClosed() {
+    @Scheduled(cron = "0 0 2 * * *")
+    @SchedulerLock(name = "closedStatusLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
+    public void runClosedStatus() {
         try {
-            service.runClosed();
+            service.runClosedStatus();
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 폐업일 경과 사업자 상태 자동 전환 실패", e);
+            log.error("[BATCH ERROR] 폐업일 경과 사업자 상태 전환 실패", e);
         }
     }
 
-    @Scheduled(cron = "0 0 3 16 * ?")
-    @SchedulerLock(name = "runReportLock", lockAtLeastFor = "1m", lockAtMostFor = "2h")
+    @Scheduled(cron = "0 0 4 16 * ?")
+    @SchedulerLock(name = "reportLock", lockAtLeastFor = "1m", lockAtMostFor = "2h")
     public void runReport() {
         try {
             service.runReport();
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 월간 리포트 자동 생성 실패", e);
+            log.error("[BATCH ERROR] 월간 리포트 생성 실패", e);
         }
     }
 
-    @Scheduled(cron = "0 0 3 1 7 ?")
-    @SchedulerLock(name = "runRateCleanupLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
-    public void runCleanup() {
+    @Scheduled(cron = "0 0 2 1 7 ?")
+    @SchedulerLock(name = "deleteRateLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
+    public void runDeleteRate() {
         try {
-            service.runCleanup();
+            service.runDeleteRate();
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 연간 세율 데이터 정리 실패", e);
+            log.error("[BATCH ERROR] 지난 세율 데이터 정리 실패", e);
+        }
+    }
+
+    @Scheduled(cron = "0 0 3 * * *")
+    @SchedulerLock(name = "dataClosedLock", lockAtLeastFor = "1m", lockAtMostFor = "1h")
+    public void runDataClosed() {
+        try {
+            service.runClosedData();
+        } catch (Exception e) {
+            log.error("[BATCH ERROR] 세무 데이터 마감(Freezing) 처리 실패", e);
         }
     }
 }

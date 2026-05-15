@@ -1,8 +1,7 @@
 package com.bizreport.batch.config.report;
 
 import com.bizreport.api.domain.report.ReportService;
-import com.bizreport.core.entity.report.ReportType;
-import com.bizreport.core.entity.report.Reports;
+import com.bizreport.core.dto.report.ReportResponse;
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.repository.business.UserRepository;
@@ -55,7 +54,7 @@ public class ReportConfig {
     @Bean
     public Step reportStep() {
         return new StepBuilder("reportStep", job)
-                .<Users, List<Reports>>chunk(chunk, manager)
+                .<Users, List<ReportResponse>>chunk(chunk, manager)
                 .reader(reportReader())
                 .processor(reportProcessor())
                 .writer(reportWriter())
@@ -74,7 +73,7 @@ public class ReportConfig {
     }
 
     @Bean
-    public ItemProcessor<Users, List<Reports>> reportProcessor() {
+    public ItemProcessor<Users, List<ReportResponse>> reportProcessor() {
         return user -> {
             YearMonth lastMonth = YearMonth.now().minusMonths(1);
             try {
@@ -87,21 +86,21 @@ public class ReportConfig {
     }
 
     @Bean
-    public ItemWriter<List<Reports>> reportWriter() {
+    public ItemWriter<List<ReportResponse>> reportWriter() {
         return chunkList -> {
-            List<Object[]> batchArgs = new ArrayList<>();
+            List<Object[]> reportArgs = new ArrayList<>();
 
-            for (List<Reports> userReports : chunkList.getItems()) {
-                for (Reports report : userReports) {
+            for (List<ReportResponse> reports : chunkList.getItems()) {
+                for (ReportResponse report : reports) {
                     try {
                         String calcJson = mapper.writeValueAsString(report.getCalc());
 
-                        batchArgs.add(new Object[]{
-                                report.getUser().getId(),
+                        reportArgs.add(new Object[]{
+                                report.getUserId(),
                                 report.getReportType().name(),
                                 report.getPeriodType().name(),
                                 report.getPeriod(),
-                                report.getResult(),
+                                report.getTax(),
                                 calcJson
                         });
                     } catch (JsonProcessingException e) {
@@ -110,7 +109,7 @@ public class ReportConfig {
                 }
             }
 
-            if (!batchArgs.isEmpty()) {
+            if (!reportArgs.isEmpty()) {
                 String sql = """
                     INSERT INTO REPORTS (b_id, report_type, period_type, period_target, tax_result, tax_calc)
                     VALUES (?, ?, ?, ?, ?, ?)
@@ -120,8 +119,8 @@ public class ReportConfig {
                         updated_at = CURRENT_TIMESTAMP
                 """;
 
-                template.batchUpdate(sql, batchArgs);
-                log.info(">>>> {}건 월간 리포트 (VAT, CIT) Bulk Upsert 완료", batchArgs.size());
+                template.batchUpdate(sql, reportArgs);
+                log.info(">>>> {}건 월간 리포트 (VAT, CIT) Bulk Upsert 완료", reportArgs.size());
             }
         };
     }

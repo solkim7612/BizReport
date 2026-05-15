@@ -69,7 +69,7 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
-    public List<Reports> calculateMonthly(Users user, YearMonth targetMon) {
+    public List<ReportResponse> calculateMonthly(Users user, YearMonth targetMon) {
         LocalDate startDt = targetMon.atDay(1);
         LocalDate endDt = targetMon.atEndOfMonth();
 
@@ -78,7 +78,7 @@ public class ReportService {
         TaxRate rate = rateRepo.findFirstByIdIndCdOrderByIdYearDesc(user.getIndCd())
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSING_INDUSTRY_CODE));
 
-        List<Reports> reports = new ArrayList<>();
+        List<ReportResponse> reports = new ArrayList<>();
 
         for (ReportType type : List.of(ReportType.VAT, ReportType.CIT)) {
             TaxCalculator calculator = calcs.get(type);
@@ -86,10 +86,14 @@ public class ReportService {
 
             result.calc().put("dataCount", dataList.size());
 
-            Reports report = Reports.create(user, type, PeriodType.MONTHLY, targetMon.toString());
-            report.update(result.tax(), result.calc());
-
-            reports.add(report);
+            reports.add(ReportResponse.builder()
+                    .userId(user.getId())
+                    .reportType(type)
+                    .periodType(PeriodType.MONTHLY)
+                    .period(targetMon.toString())
+                    .tax(result.tax())
+                    .calc(result.calc())
+                    .build());
         }
 
         return reports;

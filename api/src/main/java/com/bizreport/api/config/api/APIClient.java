@@ -46,6 +46,8 @@ public class APIClient {
 
             StatusResponse response = restTemplate.postForObject(uri, entity, StatusResponse.class);
 
+            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+
             if (response == null || !"OK".equals(response.getStatus_code())) {
                 log.error("국세청 API 비정상 응답");
                 throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);

@@ -8,7 +8,12 @@ import java.math.BigDecimal;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "TAX_RATE")
+@Table(
+        name = "TAX_RATE",
+        indexes = {
+                @Index(name = "idx_tax_rate_year", columnList = "target_year")
+        }
+)
 public class TaxRate {
     @EmbeddedId
     private RateId id;

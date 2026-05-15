@@ -41,15 +41,6 @@ public class StatusResponse {
                     .build();
         }
 
-        public void batchUpdate(Users user) {
-            user.batchUpdate(
-                    Status.ofCode(this.b_stt_cd),
-                    TaxType.ofCode(this.tax_type_cd),
-                    parseDate(this.tax_type_change_dt),
-                    parseDate(this.end_dt)
-            );
-        }
-
         public LocalDate parseDate(String date) {
             if (date == null || date.isBlank() || "null".equals(date)) {
                 return null;

@@ -1,6 +1,6 @@
 package com.bizreport.batch.config.data;
 
-import com.bizreport.core.dto.data.CardRequest;
+import com.bizreport.core.dto.data.CardFileRequest;
 import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.user.Users;
@@ -33,15 +33,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.util.Map;
 
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-public class CardConfig {
+public class CardUploadConfig {
     private final JobRepository job;
     private final PlatformTransactionManager manager;
     private final UserRepository userRepo;
@@ -53,11 +51,12 @@ public class CardConfig {
     private int chunk;
 
     @Bean
-    public Job cardJob() {
-        return new JobBuilder("cardJob", job)
+    public Job cardUploadJob() {
+        return new JobBuilder("cardUploadJob", job)
                 .start(createTempTableStep())
-                .next(cardStep())
-                .next(swapDataStep())
+                .next(cardUploadStep())
+                .next(swapStep())
+                .next(dropTempTableStep())
                 .build();
     }
 
@@ -78,12 +77,12 @@ public class CardConfig {
     }
 
     @Bean
-    public Step cardStep() {
-        return new StepBuilder("cardStep", job)
-                .<CardRequest, Data>chunk(chunk, manager)
-                .reader(cardReader(null, null))
-                .processor(cardProcessor(null))
-                .writer(cardTempWriter(null))
+    public Step cardUploadStep() {
+        return new StepBuilder("cardUploadStep", job)
+                .<CardFileRequest, Data>chunk(chunk, manager)
+                .reader(cardFileReader(null, null))
+                .processor(cardFileProcessor(null, null, null))
+                .writer(tempWriter(null))
                 .faultTolerant()
                 .skip(FlatFileParseException.class)
                 .skip(IllegalArgumentException.class)
@@ -93,7 +92,7 @@ public class CardConfig {
 
     @Bean
     @StepScope
-    public FlatFileItemReader<CardRequest> cardReader(
+    public FlatFileItemReader<CardFileRequest> cardFileReader(
             @Value("#{jobParameters['requestId']}") Long requestId,
             @Value("#{jobParameters['fileName']}") String fileName) {
 
@@ -107,54 +106,47 @@ public class CardConfig {
             }
         };
 
-        return new FlatFileItemReaderBuilder<CardRequest>()
+        return new FlatFileItemReaderBuilder<CardFileRequest>()
                 .name("cardFileReader")
                 .resource(resource)
                 .delimited()
-                .names("cardNum", "transDt", "venderId", "netValue", "vatValue", "totalPrice")
+                .names("transDt", "vendorId", "netValue", "vatValue", "totalPrice")
                 .linesToSkip(2)
                 .fieldSetMapper(new BeanWrapperFieldSetMapper<>() {{
-                    setTargetType(CardRequest.class);
+                    setTargetType(CardFileRequest.class);
                 }})
                 .build();
     }
 
     @Bean
     @StepScope
-    public ItemProcessor<CardRequest, Data> cardProcessor(@Value("#{jobParameters['id']}") String id) {
+    public ItemProcessor<CardFileRequest, Data> cardFileProcessor(
+            @Value("#{jobParameters['id']}") String id,
+            @Value("#{jobParameters['cardNum']}") String cardNum,
+            @Value("#{jobParameters['ignoreVat']}") String ignoreVatStr) {
 
         Users user = userRepo.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        boolean ignoreVat = Boolean.parseBoolean(ignoreVatStr);
+
         return request -> {
-            LocalDate transDt = LocalDate.parse(request.getTransDt());
-            LocalDate citDeadline = LocalDate.of(transDt.getYear() + 1, 5, 31);
-
-            if (LocalDate.now().isAfter(citDeadline)) return null;
-
             request.validPrice();
-
-            LocalDate vatDeadline = (transDt.getMonthValue() <= 6)
-                    ? LocalDate.of(transDt.getYear(), 7, 25)
-                    : LocalDate.of(transDt.getYear() + 1, 1, 25);
-
-            if (request.parsedVatValue().compareTo(BigDecimal.ZERO) > 0 && LocalDate.now().isAfter(vatDeadline)) {
-                request.setVatValue("0");
-                request.setNetValue(request.getTotalPrice().toString());
-            }
-
-            return request.toEntity(user);
+            return request.toEntity(user, cardNum, ignoreVat);
         };
     }
 
     @Bean
     @StepScope
-    public JdbcBatchItemWriter<Data> cardTempWriter(@Value("#{jobParameters['id']}") String id) {
+    public JdbcBatchItemWriter<Data> tempWriter(@Value("#{jobParameters['id']}") String id) {
         String tempTableName = "TEMP_DATA_" + id;
 
-        String sql = "INSERT INTO " + tempTableName + " " +
-                "(b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price) " +
-                "VALUES (:user.id, :type, :method, :isE, :isMod, :cardNum, :vendorId, :transDt, :netValue, :vatValue, :totalPrice)";
+        String sql = """
+                INSERT INTO %s 
+                (b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price) 
+                VALUES 
+                (:user.id, :type, :method, :isE, :isMod, :cardNum, :vendorId, :transDt, :netValue, :vatValue, :totalPrice)
+                """.formatted(tempTableName);
 
         return new JdbcBatchItemWriterBuilder<Data>()
                 .dataSource(dataSource)
@@ -164,8 +156,8 @@ public class CardConfig {
     }
 
     @Bean
-    public Step swapDataStep() {
-        return new StepBuilder("swapDataStep", job)
+    public Step swapStep() {
+        return new StepBuilder("swapStep", job)
                 .tasklet((contribution, chunkContext) -> {
                     Map<String, Object> params = chunkContext.getStepContext().getJobParameters();
                     String id = (String) params.get("id");
@@ -176,18 +168,39 @@ public class CardConfig {
 
                     log.info("B_NO {} : 카드({}) 기간({} ~ {}) 데이터 Swap 처리 시작", id, cardNum, startDtStr, endDtStr);
 
-                    String deleteOldDataSql = "DELETE FROM DATA WHERE b_id = ? AND data_method = 'CARD' AND card_num = ? AND trans_dt BETWEEN ? AND ?";
-                    int deleted = template.update(deleteOldDataSql, id, cardNum, startDtStr, endDtStr);
+                    String deleteSql = """
+                            DELETE FROM DATA 
+                            WHERE b_id = ? 
+                              AND data_method = 'CARD' 
+                              AND card_num = ? 
+                              AND trans_dt BETWEEN ? AND ?
+                            """;
+                    int deleted = template.update(deleteSql, id, cardNum, startDtStr, endDtStr);
 
-                    String insertNewDataSql = "INSERT INTO DATA (b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price) " +
-                            "SELECT b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price " +
-                            "FROM " + tempTableName + " " +
-                            "WHERE trans_dt BETWEEN ? AND ?";
-                    int inserted = template.update(insertNewDataSql, startDtStr, endDtStr);
+                    String insertSql = """
+                            INSERT INTO DATA (b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price) 
+                            SELECT b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price 
+                            FROM %s 
+                            WHERE trans_dt BETWEEN ? AND ?
+                            """.formatted(tempTableName);
+                    int inserted = template.update(insertSql, startDtStr, endDtStr);
+
+                    log.info("B_NO {} : 기존 데이터 {}건 삭제 / 신규 데이터 {}건 적재 Swap 완료", id, deleted, inserted);
+
+                    return RepeatStatus.FINISHED;
+                }, manager)
+                .build();
+    }
+
+    @Bean
+    public Step dropTempTableStep() {
+        return new StepBuilder("dropTempTableStep", job)
+                .tasklet((contribution, chunkContext) -> {
+                    String id = (String) chunkContext.getStepContext().getJobParameters().get("id");
+                    String tempTableName = "TEMP_DATA_" + id;
 
                     template.execute("DROP TABLE IF EXISTS " + tempTableName);
-
-                    log.info("B_NO {} : 기존 카드 데이터 {}건 삭제 / 신규 데이터 {}건 적재 Swap 완료", id, deleted, inserted);
+                    log.info("B_NO {} : 동적 격리 테이블 [{}] Drop 정리 완료", id, tempTableName);
 
                     return RepeatStatus.FINISHED;
                 }, manager)

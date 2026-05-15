@@ -12,6 +12,7 @@ import java.util.Map;
 @Builder
 public class ReportResponse {
     private Long id;
+    private String userId;
     private ReportType reportType;
     private PeriodType periodType;
     private String period;
@@ -21,6 +22,7 @@ public class ReportResponse {
     public static ReportResponse from(Reports report) {
         return ReportResponse.builder()
                 .id(report.getId())
+                .userId(report.getUser().getId())
                 .reportType(report.getReportType())
                 .periodType(report.getPeriodType())
                 .period(report.getPeriod())

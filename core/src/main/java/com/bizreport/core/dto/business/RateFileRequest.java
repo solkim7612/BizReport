@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 
 @Getter
 @Setter
-public class RateRequest {
+public class RateFileRequest {
     private String year;
     private String indCd;
     private String indNm;

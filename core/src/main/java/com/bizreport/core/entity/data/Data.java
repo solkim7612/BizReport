@@ -36,7 +36,7 @@ public class Data extends BaseEntity {
     @Column(name = "is_e", nullable = false)
     private boolean isE;
 
-    @Column(name = "is_mod", nullable = false)
+    @Column(name = "is_mod")
     private boolean isMod;
 
     @Column(name = "card_num", length = 20)

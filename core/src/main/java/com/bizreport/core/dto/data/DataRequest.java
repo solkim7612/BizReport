@@ -35,12 +35,13 @@ public class DataRequest {
 
         String cardNum = null;
         if (method == DataMethod.CARD) {
-            cardNum = String.format("%04d-%04d-%04d-%04d",
+            cardNum = String.format("%04d%04d%04d%04d",
                     random.nextInt(10000), random.nextInt(10000), random.nextInt(10000), random.nextInt(10000));
         }
 
         int randomMonth = random.nextInt(12) + 1;
         int randomDay = random.nextInt(28) + 1;
+
         LocalDate transDt = LocalDate.of(this.year, randomMonth, randomDay);
 
         long randomNetValue = (random.nextInt(100) + 1) * 10000L;

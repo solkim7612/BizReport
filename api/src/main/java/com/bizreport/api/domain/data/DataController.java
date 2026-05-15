@@ -1,15 +1,15 @@
 package com.bizreport.api.domain.data;
 
+import com.bizreport.core.dto.data.CardUploadRequest;
 import com.bizreport.core.dto.data.DataRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
@@ -20,6 +20,9 @@ public class DataController {
 
     private final DataService service;
 
+    @Value("${dir.download.card:classpath:static/}")
+    private String path;
+
     @PostMapping("/generate/mock")
     public ResponseEntity<String> generate(@RequestBody DataRequest request) {
         service.generate(request);
@@ -28,8 +31,7 @@ public class DataController {
 
     @GetMapping("/download/format")
     public ResponseEntity<Resource> downloadFormat() throws IOException {
-        ClassPathResource classPathResource = new ClassPathResource("static/format.csv");
-        InputStreamResource resource = new InputStreamResource(classPathResource.getInputStream());
+        Resource resource = new ClassPathResource(path.replace("classpath:", "") + "format.csv");
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"format.csv\"")
@@ -38,14 +40,8 @@ public class DataController {
     }
 
     @PostMapping(value = "/upload/card", consumes = "multipart/form-data")
-    public ResponseEntity<String> uploadCard(
-            @RequestParam("id") String id,
-            @RequestParam("cardNum") String cardNum,
-            @RequestParam("startDt") String startDt,
-            @RequestParam("endDt") String endDt,
-            @RequestParam("file") MultipartFile file) {
-
-        service.uploadCard(id, cardNum, startDt, endDt, file);
-        return ResponseEntity.ok("특정 카드(" + cardNum + ") 내역 파일 덮어쓰기 대기열 등록 완료");
+    public ResponseEntity<String> uploadCard(@ModelAttribute CardUploadRequest request) {
+        service.uploadCard(request);
+        return ResponseEntity.ok("특정 카드(" + request.getCardNum() + ") 내역 파일 덮어쓰기 대기열 등록 완료");
     }
 }
