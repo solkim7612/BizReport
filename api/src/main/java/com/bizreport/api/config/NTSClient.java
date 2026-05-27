@@ -1,4 +1,4 @@
-package com.bizreport.api.config.api;
+package com.bizreport.api.config;
 
 import com.bizreport.core.dto.business.StatusRequest;
 import com.bizreport.core.dto.business.StatusResponse;
@@ -21,7 +21,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class APIClient {
+public class NTSClient {
     private final RestTemplate restTemplate;
 
     @Value("${api.nts.url}")
@@ -66,7 +66,7 @@ public class APIClient {
             throw e;
         } catch (Exception e) {
             log.error("국세청 상태조회 API 통신 실패. b_no count: {}", userList.size(), e);
-            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED, e);
+            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
         }
     }
 }

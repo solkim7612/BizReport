@@ -4,7 +4,6 @@ import com.bizreport.core.dto.data.*;
 import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataMethod;
-import com.bizreport.core.entity.data.DataType;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.report.Reports;
 import com.bizreport.core.entity.user.Users;
@@ -22,8 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.google.cloud.vision.v1.*;
-import com.google.protobuf.ByteString;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -31,6 +30,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -42,8 +43,10 @@ public class DataService {
     private final DataJdbcRepository jdbcRepo;
     private final BatchRepository batchRepo;
 
+    private final ImageAnnotatorClient client;
+
     @Transactional(readOnly = true)
-    public List<DataResponse> getData(String id, DataReviewRequest request) {
+    public List<DataResponse> getData(String id, DataRequest request) {
         LocalDate startDt = request.getStartYearMonth().atDay(1);
         LocalDate endDt = request.getEndYearMonth().atEndOfMonth();
 
@@ -58,26 +61,26 @@ public class DataService {
                 .toList();
     }
 
-//    @Transactional
-//    public void createData(ManualDataRequest request) {
-//        Users user = userRepo.findById(request.getId())
-//                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-//
-//        YearMonth targetMon = YearMonth.from(request.getTransDt());
-//        LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, targetMon);
-//
-//        if (LocalDate.now().isAfter(vatDeadline)) {
-//            throw new CustomException(ErrorCode.REPORT_ALREADY_CLOSED);
-//        }
-//
-//        Data data = request.toEntity(user);
-//
-//        dataRepo.save(data);
-//        log.info("B_NO {} : 수기 세무 데이터 1건 추가 완료", user.getId());
-//    }
+    @Transactional
+    public void createData(ManualDataRequest request) {
+        Users user = userRepo.findById(request.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        YearMonth targetMon = YearMonth.from(request.getTransDt());
+        LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, targetMon);
+
+        if (LocalDate.now().isAfter(vatDeadline)) {
+            throw new CustomException(ErrorCode.REPORT_ALREADY_CLOSED);
+        }
+
+        Data data = request.toEntity(user);
+
+        dataRepo.save(data);
+        log.info("B_NO {} : 수기 세무 데이터 1건 추가 완료", user.getId());
+    }
 
     public ManualDataRequest extractReceipt(MultipartFile file) {
-        validate(file, ".jpg", ".jpeg", ".png"); // 확장자 검증 로직 약간 수정 필요
+        validate(file, ".jpg", ".jpeg", ".png");
 
         try {
             ByteString imgBytes = ByteString.readFrom(file.getInputStream());
@@ -88,36 +91,64 @@ public class DataService {
                     .setImage(img)
                     .build();
 
-            try (ImageAnnotatorClient client = ImageAnnotatorClient.create()) {
-                BatchAnnotateImagesResponse response = client.batchAnnotateImages(List.of(request));
-                AnnotateImageResponse res = response.getResponsesList().get(0);
+            BatchAnnotateImagesResponse response = client.batchAnnotateImages(List.of(request));
+            AnnotateImageResponse res = response.getResponsesList().get(0);
 
-                if (res.hasError()) {
-                    throw new CustomException(ErrorCode.EXTERNAL_API_FAILED, "OCR API 에러: " + res.getError().getMessage());
-                }
-
-                String rawText = res.getFullTextAnnotation().getText();
-                log.info("추출된 영수증 텍스트: \n{}", rawText);
-
-                return parseReceipt(rawText);
+            if (res.hasError()) {
+                throw new CustomException(ErrorCode.OCR_EXTRACTION_FAILED);
             }
+
+            String text = res.getFullTextAnnotation().getText();
+            log.info("추출된 영수증 텍스트: \n{}", text);
+
+            return parseText(text);
 
         } catch (Exception e) {
             log.error("OCR 처리 중 오류 발생", e);
-            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
+            throw new CustomException(ErrorCode.OCR_EXTRACTION_FAILED);
         }
     }
 
-    private ManualDataRequest parseReceipt(String rawText) {
+    private ManualDataRequest parseText(String text) {
         ManualDataRequest request = new ManualDataRequest();
 
-        request.setMethod(DataMethod.CARD);
-        request.setType(DataType.PURCHASE);
+        Pattern venPattern = Pattern.compile("(\\d{3})\\s*[-]?\\s*(\\d{2})\\s*[-]?\\s*(\\d{5})");
+        Matcher venMatcher = venPattern.matcher(text);
+        if (venMatcher.find()) {
+            request.setVendorId(venMatcher.group(1) + venMatcher.group(2) + venMatcher.group(3));
+        }
 
-        // TODO: 정규표현식(Regex)을 사용하여 rawText에서 아래 항목들을 추출해야 합니다.
-        // 1. 날짜 추출 (예: 2024-05-12) -> request.setTransDt(...)
-        // 2. 합계 금액 추출 (예: 15,000) -> request.setNetValue(...) / request.setVatValue(...)
-        // 3. 사업자번호 추출 -> request.setVendorId(...)
+        Pattern datePattern = Pattern.compile("(20\\d{2}|\\d{2})[\\s\\.\\-\\/년]+(0?[1-9]|1[0-2])[\\s\\.\\-\\/월]+(0?[1-9]|[12]\\d|3[01])일?");
+        Matcher dateMatcher = datePattern.matcher(text);
+        if (dateMatcher.find()) {
+            String yearStr = dateMatcher.group(1);
+            if (yearStr.length() == 2) yearStr = "20" + yearStr;
+
+            int year = Integer.parseInt(yearStr);
+            int month = Integer.parseInt(dateMatcher.group(2));
+            int day = Integer.parseInt(dateMatcher.group(3));
+
+            request.setTransDt(LocalDate.of(year, month, day));
+        }
+
+        Pattern totalPattern = Pattern.compile("(?:합\\s*계|결\\s*제\\s*금\\s*액|승\\s*인\\s*금\\s*액|받\\s*을\\s*금\\s*액|총\\s*액)[\\s:원]*([0-9,]+)");
+        Matcher totalMatcher = totalPattern.matcher(text);
+        if (totalMatcher.find()) {
+            String totalStr = totalMatcher.group(1).replace(",", "");
+            BigDecimal total = new BigDecimal(totalStr);
+
+            Pattern vatPattern = Pattern.compile("(?:부\\s*가\\s*가?\\s*치?\\s*세|세\\s*액|V\\s*A\\s*T)[\\s:원]*([0-9,]+)");
+            Matcher vatMatcher = vatPattern.matcher(text);
+
+            BigDecimal vat = BigDecimal.ZERO;
+            if (vatMatcher.find()) {
+                String vatStr = vatMatcher.group(1).replace(",", "");
+                vat = new BigDecimal(vatStr);
+            }
+
+            request.setTotalPrice(total);
+            request.setVatValue(vat);
+        }
 
         return request;
     }
@@ -212,7 +243,7 @@ public class DataService {
 
         } catch (Exception e) {
             log.error("B_NO {} 카드 파일 업로드 오류", request.getId(), e);
-            throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED, e);
+            throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }
 
@@ -220,8 +251,21 @@ public class DataService {
     // helper method
     // ==========================================
 
-    private void validate(MultipartFile file, String extension) {
-        if (file.isEmpty() || file.getOriginalFilename() == null || !file.getOriginalFilename().endsWith(extension)) {
+    private void validate(MultipartFile file, String... extensions) {
+        if (file.isEmpty() || file.getOriginalFilename() == null) {
+            throw new CustomException(ErrorCode.INVALID_FILE_EXTENSION);
+        }
+
+        String fileName = file.getOriginalFilename().toLowerCase();
+        boolean isValid = false;
+        for (String ext : extensions) {
+            if (fileName.endsWith(ext)) {
+                isValid = true;
+                break;
+            }
+        }
+
+        if (!isValid) {
             throw new CustomException(ErrorCode.INVALID_FILE_EXTENSION);
         }
     }

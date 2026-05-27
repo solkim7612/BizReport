@@ -9,7 +9,7 @@ import java.time.YearMonth;
 
 @Getter
 @Setter
-public class DataReviewRequest {
+public class DataRequest {
     private String startMon;
     private String endMon;
     private DataType type;

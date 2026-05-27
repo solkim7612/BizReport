@@ -1,10 +1,9 @@
 package com.bizreport.api.domain.business;
 
-import com.bizreport.api.config.api.APIClient;
+import com.bizreport.api.config.NTSClient;
 import com.bizreport.core.dto.business.RegisterRequest;
 import com.bizreport.core.dto.business.StatusResponse;
 import com.bizreport.core.entity.batch.BatchRequest;
-import com.bizreport.core.entity.rate.TaxRate;
 import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.exception.ErrorCode;
@@ -28,7 +27,7 @@ public class BizService {
     private final HistoryRepository historyRepo;
     private final RateRepository rateRepo;
     private final BatchRepository batchRepo;
-    private final APIClient client;
+    private final NTSClient client;
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -47,7 +46,7 @@ public class BizService {
             throw e;
         } catch (Exception e) {
             log.error("국세청 상태 조회 API 실패: {}", request.getId(), e);
-            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED, e);
+            throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
         }
     }
 
@@ -65,7 +64,7 @@ public class BizService {
 
         } catch (Exception e) {
             log.error("파일 업로드 및 대기열 등록 중 오류 발생", e);
-            throw new CustomException(ErrorCode.BATCH_REGISTRATION_FAILED, e);
+            throw new CustomException(ErrorCode.BATCH_REGISTRATION_FAILED);
         }
     }
 

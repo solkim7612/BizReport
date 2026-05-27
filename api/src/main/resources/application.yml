@@ -12,7 +12,9 @@ logging:
 api:
   nts:
     url: "https://api.odcloud.kr/api/nts-businessman/v1/status"
-    key: ${NTS_API_KEY}
+    key: ${NTS_STATUS_KEY}
+  google:
+    key: ${GOOGLE_VISION_KEY}
 
 dir:
   upload:

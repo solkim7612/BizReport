@@ -5,7 +5,7 @@ import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.TaxType;
 import com.bizreport.core.entity.user.Users;
-import com.bizreport.api.config.api.APIClient;
+import com.bizreport.api.config.NTSClient;
 import com.bizreport.core.repository.business.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +37,7 @@ public class StatusUpdateConfig {
     private final JobRepository job;
     private final PlatformTransactionManager manager;
     private final UserRepository userRepo;
-    private final APIClient client;
+    private final NTSClient client;
     private final JdbcTemplate template;
 
     @Value("${batch.chunk.api:100}")

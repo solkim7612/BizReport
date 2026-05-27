@@ -1,8 +1,6 @@
 package com.bizreport.api.domain.data;
 
 import com.bizreport.core.dto.data.*;
-import com.bizreport.core.entity.data.DataMethod;
-import com.bizreport.core.entity.data.DataType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -14,8 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.time.YearMonth;
 import java.util.List;
 
 @RestController
@@ -31,17 +27,17 @@ public class DataController {
     @GetMapping("/{id}")
     public ResponseEntity<List<DataResponse>> getData(
             @PathVariable("id") String id,
-            @ModelAttribute DataReviewRequest request) {
+            @ModelAttribute DataRequest request) {
 
         List<DataResponse> response = service.getData(id, request);
         return ResponseEntity.ok(response);
     }
 
-//    @PostMapping
-//    public ResponseEntity<String> createData(@RequestBody ManualDataRequest request) {
-//        service.createData(request);
-//        return ResponseEntity.ok("수기 세무 데이터 1건 추가 완료");
-//    }
+    @PostMapping
+    public ResponseEntity<String> createData(@RequestBody ManualDataRequest request) {
+        service.createData(request);
+        return ResponseEntity.ok("수기 세무 데이터 1건 추가 완료");
+    }
 
     @PostMapping(value = "/receipt/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ManualDataRequest> extractReceipt(@RequestParam("file") MultipartFile file) {
