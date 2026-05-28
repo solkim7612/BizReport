@@ -112,11 +112,20 @@ public class DataService {
     private ManualDataRequest parseText(String text) {
         ManualDataRequest request = new ManualDataRequest();
 
-        Pattern venPattern = Pattern.compile("(\\d{3})\\s*[-]?\\s*(\\d{2})\\s*[-]?\\s*(\\d{5})");
+        String vendorId = "0000000000";
+        Pattern venPattern = Pattern.compile("(?:사업자(?:등록)?번호\\s*[:;]?\\s*)?(\\d{3})\\s*[-]?\\s*(\\d{2})\\s*[-]?\\s*([\\d\\*]{5})");
         Matcher venMatcher = venPattern.matcher(text);
         if (venMatcher.find()) {
-            request.setVendorId(venMatcher.group(1) + venMatcher.group(2) + venMatcher.group(3));
+            String p1 = venMatcher.group(1);
+            String p2 = venMatcher.group(2);
+            String p3 = venMatcher.group(3);
+
+            if (!p1.equals("880") || text.contains("사업자")) {
+                vendorId = (p1 + p2 + p3).replace("*", "0");
+            }
         }
+
+        request.setVendorId(vendorId);
 
         Pattern datePattern = Pattern.compile("(20\\d{2}|\\d{2})[\\s\\.\\-\\/년]+(0?[1-9]|1[0-2])[\\s\\.\\-\\/월]+(0?[1-9]|[12]\\d|3[01])일?");
         Matcher dateMatcher = datePattern.matcher(text);
@@ -131,24 +140,21 @@ public class DataService {
             request.setTransDt(LocalDate.of(year, month, day));
         }
 
-        Pattern totalPattern = Pattern.compile("(?:합\\s*계|결\\s*제\\s*금\\s*액|승\\s*인\\s*금\\s*액|받\\s*을\\s*금\\s*액|총\\s*액)[\\s:원]*([0-9,]+)");
+        Pattern totalPattern = Pattern.compile("(?:합\\s*계|결\\s*제\\s*금\\s*액|승\\s*인\\s*금\\s*액|받\\s*을\\s*금\\s*액|신\\s*용\\s*액|총\\s*액|카\\s*드\\s*청\\s*구\\s*액)[\\s:원₩\\\\]*([0-9,]+)");
         Matcher totalMatcher = totalPattern.matcher(text);
+        BigDecimal total = BigDecimal.ZERO;
         if (totalMatcher.find()) {
             String totalStr = totalMatcher.group(1).replace(",", "");
-            BigDecimal total = new BigDecimal(totalStr);
-
-            Pattern vatPattern = Pattern.compile("(?:부\\s*가\\s*가?\\s*치?\\s*세|세\\s*액|V\\s*A\\s*T)[\\s:원]*([0-9,]+)");
-            Matcher vatMatcher = vatPattern.matcher(text);
-
-            BigDecimal vat = BigDecimal.ZERO;
-            if (vatMatcher.find()) {
-                String vatStr = vatMatcher.group(1).replace(",", "");
-                vat = new BigDecimal(vatStr);
-            }
+            total = new BigDecimal(totalStr);
 
             request.setTotalPrice(total);
-            request.setVatValue(vat);
         }
+
+        BigDecimal vat = BigDecimal.ZERO;
+        if (total.compareTo(BigDecimal.ZERO) > 0) {
+            vat = total.divide(new BigDecimal("11"), 0, java.math.RoundingMode.DOWN);
+        }
+        request.setVatValue(vat);
 
         return request;
     }

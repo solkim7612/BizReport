@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS `batch_requests` (
                                                 `request_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                                                 `job_name` VARCHAR(255) NOT NULL COMMENT '실행할 Job 이름',
     `file_name` VARCHAR(255) NOT NULL COMMENT '파일명',
-    `file_data` TEXT NOT NULL COMMENT '파일데이터',
+    `file_data` LONGTEXT NOT NULL COMMENT '파일데이터',
     `job_parameters` TEXT COMMENT 'Job 파라미터 (JSON)',
     `status` ENUM('READY', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'READY' COMMENT '상태',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,

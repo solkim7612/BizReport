@@ -20,8 +20,8 @@ public class DataJdbcRepository {
     private final JdbcTemplate jdbcTemplate;
 
     public void insert(List<Data> dataList) {
-        String sql = "INSERT INTO data (b_id, trans_dt, data_type, net_value, vat_value, total_price, created_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, NOW())";
+        String sql = "INSERT INTO data (b_id, trans_dt, data_type, data_method, is_e, is_mod, vendor_id, net_value, vat_value, total_price, created_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
         int batchSize = 1000;
         List<Data> chunk = new ArrayList<>();
@@ -49,9 +49,13 @@ public class DataJdbcRepository {
                 ps.setString(1, data.getUser().getId());
                 ps.setObject(2, data.getTransDt());
                 ps.setString(3, data.getType().name());
-                ps.setBigDecimal(4, data.getNetValue());
-                ps.setBigDecimal(5, data.getVatValue());
-                ps.setBigDecimal(6, data.getTotalPrice());
+                ps.setString(4, data.getMethod().name());
+                ps.setBoolean(5, data.isE());
+                ps.setBoolean(6, data.isMod());
+                ps.setString(7, data.getVendorId() != null ? data.getVendorId() : "0000000000");
+                ps.setBigDecimal(8, data.getNetValue());
+                ps.setBigDecimal(9, data.getVatValue());
+                ps.setBigDecimal(10, data.getTotalPrice());
             }
 
             @Override
