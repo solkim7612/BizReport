@@ -1,6 +1,5 @@
 dependencies {
     implementation(project(":core"))
-    implementation(project(":api"))
 
     // Spring Batch
     implementation("org.springframework.boot:spring-boot-starter-batch")

@@ -5,9 +5,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-@SpringBootApplication(scanBasePackages = {"com.bizreport.api", "com.bizreport.core", "com.bizreport.batch"})
-@EntityScan(basePackages = {"com.bizreport.core.entity"})
-@EnableJpaRepositories(basePackages = {"com.bizreport.core.repository"})
+@SpringBootApplication(scanBasePackages = "com.bizreport")
+@EntityScan(basePackages = "com.bizreport")
+@EnableJpaRepositories(basePackages = "com.bizreport")
 public class ApiApplication {
     public static void main(String[] args) {
         SpringApplication.run(ApiApplication.class, args);
