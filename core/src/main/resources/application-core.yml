@@ -23,3 +23,10 @@ logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
+
+api:
+  nts:
+    url: "https://api.odcloud.kr/api/nts-businessman/v1/status"
+#    key: ${NTS_STATUS_KEY}
+  google:
+    key: ${GOOGLE_VISION_KEY}

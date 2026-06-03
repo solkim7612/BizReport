@@ -48,6 +48,7 @@ public class CardFileRequest {
                 .type(DataType.PURCHASE)
                 .method(DataMethod.CARD)
                 .isE(false)
+                .isMod(true)
                 .cardNum(parseCardNum)
                 .vendorId(parseVendorId)
                 .transDt(LocalDate.parse(this.transDt))

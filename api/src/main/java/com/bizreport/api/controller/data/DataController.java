@@ -1,8 +1,8 @@
-package com.bizreport.api.domain.data;
+package com.bizreport.api.controller.data;
 
 import com.bizreport.core.dto.data.*;
+import com.bizreport.core.service.data.DataService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -21,9 +21,6 @@ public class DataController {
 
     private final DataService service;
 
-    @Value("${dir.download.card:classpath:static/}")
-    private String path;
-
     @GetMapping("/{id}")
     public ResponseEntity<List<DataResponse>> getData(
             @PathVariable("id") String id,
@@ -35,6 +32,7 @@ public class DataController {
 
     @PostMapping
     public ResponseEntity<String> createData(@RequestBody ManualDataRequest request) {
+
         service.createData(request);
         return ResponseEntity.ok("수기 세무 데이터 1건 추가 완료");
     }
@@ -43,7 +41,6 @@ public class DataController {
     public ResponseEntity<ManualDataRequest> extractReceipt(@RequestParam("file") MultipartFile file) {
 
         ManualDataRequest extractedData = service.extractReceipt(file);
-
         return ResponseEntity.ok(extractedData);
     }
 
@@ -58,19 +55,23 @@ public class DataController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteData(@PathVariable("id") Long id) {
+
         service.deleteData(id);
         return ResponseEntity.ok("데이터 삭제 완료");
     }
 
     @PostMapping("/generate/mock")
     public ResponseEntity<String> generate(@RequestBody AutoDataRequest request) {
+
         service.generate(request);
         return ResponseEntity.ok("가상 세무 데이터 생성 완료");
     }
 
     @GetMapping("/download/format")
     public ResponseEntity<Resource> downloadFormat() throws IOException {
-        Resource resource = new ClassPathResource(path.replace("classpath:", "") + "format.csv");
+
+        String filePath = "static/format.csv";
+        Resource resource = new ClassPathResource(filePath);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"format.csv\"")
@@ -80,6 +81,7 @@ public class DataController {
 
     @PostMapping(value = "/upload/card", consumes = "multipart/form-data")
     public ResponseEntity<String> uploadCard(@ModelAttribute CardUploadRequest request) {
+
         service.uploadCard(request);
         return ResponseEntity.ok("특정 카드(" + request.getCardNum() + ") 내역 파일 덮어쓰기 대기열 등록 완료");
     }

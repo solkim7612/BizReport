@@ -22,16 +22,16 @@ public class RateFileRequest {
     private BigDecimal overExpRt;
     private BigDecimal stndExpRt;
 
-    public TaxRate toEntity(){
+    public TaxRate toEntity() {
         return TaxRate.builder()
                 .id(new RateId(this.indCd, this.year))
                 .indNm(this.indNm)
-                .vatRt(categorize())
+                .vatRt(categorize().getRate())
                 .expRt(this.expRt)
                 .build();
     }
 
-    private VatRate categorize(){
+    private VatRate categorize() {
         String c1 = (category1 == null) ? "" : category1;
         String c2 = (category2 == null) ? "" : category2;
         String c3 = (category3 == null) ? "" : category3;

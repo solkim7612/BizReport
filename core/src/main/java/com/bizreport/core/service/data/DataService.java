@@ -1,4 +1,4 @@
-package com.bizreport.api.domain.data;
+package com.bizreport.core.service.data;
 
 import com.bizreport.core.dto.data.*;
 import com.bizreport.core.entity.batch.BatchRequest;
@@ -74,9 +74,9 @@ public class DataService {
         }
 
         Data data = request.toEntity(user);
-
         dataRepo.save(data);
-        log.info("B_NO {} : 수기 세무 데이터 1건 추가 완료", user.getId());
+
+        log.info("[SERVICE] 수기 세무 데이터 1건 추가 완료: B_NO {}", user.getId());
     }
 
     public ManualDataRequest extractReceipt(MultipartFile file) {
@@ -99,12 +99,12 @@ public class DataService {
             }
 
             String text = res.getFullTextAnnotation().getText();
-            log.info("추출된 영수증 텍스트: \n{}", text);
+            log.info("[SERVICE] 추출된 영수증 텍스트: \n{}", text);
 
             return parseText(text);
 
         } catch (Exception e) {
-            log.error("OCR 처리 중 오류 발생", e);
+            log.error("[SERVICE] OCR 처리 중 오류 발생", e);
             throw new CustomException(ErrorCode.OCR_EXTRACTION_FAILED);
         }
     }
@@ -113,6 +113,7 @@ public class DataService {
         ManualDataRequest request = new ManualDataRequest();
 
         String vendorId = "0000000000";
+
         Pattern venPattern = Pattern.compile("(?:사업자(?:등록)?번호\\s*[:;]?\\s*)?(\\d{3})\\s*[-]?\\s*(\\d{2})\\s*[-]?\\s*([\\d\\*]{5})");
         Matcher venMatcher = venPattern.matcher(text);
         if (venMatcher.find()) {
@@ -140,9 +141,10 @@ public class DataService {
             request.setTransDt(LocalDate.of(year, month, day));
         }
 
+        BigDecimal total = BigDecimal.ZERO;
+
         Pattern totalPattern = Pattern.compile("(?:합\\s*계|결\\s*제\\s*금\\s*액|승\\s*인\\s*금\\s*액|받\\s*을\\s*금\\s*액|신\\s*용\\s*액|총\\s*액|카\\s*드\\s*청\\s*구\\s*액)[\\s:원₩\\\\]*([0-9,]+)");
         Matcher totalMatcher = totalPattern.matcher(text);
-        BigDecimal total = BigDecimal.ZERO;
         if (totalMatcher.find()) {
             String totalStr = totalMatcher.group(1).replace(",", "");
             total = new BigDecimal(totalStr);
@@ -151,9 +153,11 @@ public class DataService {
         }
 
         BigDecimal vat = BigDecimal.ZERO;
+
         if (total.compareTo(BigDecimal.ZERO) > 0) {
             vat = total.divide(new BigDecimal("11"), 0, java.math.RoundingMode.DOWN);
         }
+
         request.setVatValue(vat);
 
         return request;
@@ -169,7 +173,7 @@ public class DataService {
         }
 
         data.update(request.netValue(), request.vatValue());
-        log.info("데이터 금액 수정 완료: dataId={}", id);
+        log.info("[SERVICE] 데이터 금액 수정 완료: dataId={}", id);
     }
 
     @Transactional
@@ -195,9 +199,8 @@ public class DataService {
         }
 
         jdbcRepo.insert(dataList);
-
-        log.info("B_NO {} : 가상 세무 데이터 {}건 생성 및 적재 완료 (기간: {} ~ {})",
-                user.getId(), request.getCount(), request.getStartMon(), request.getEndMon());
+        log.info("[SERVICE] B_NO {} 의 해당 기간({} ~ {}) 가상 세무 데이터 생성: {}건 ",
+                user.getId(), request.getStartMon(), request.getEndMon(), request.getCount());
     }
 
     public void uploadCard(CardUploadRequest request) {
@@ -215,15 +218,16 @@ public class DataService {
         }
 
         LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, startMon, endMon);
+
         boolean isPassed = LocalDate.now().isAfter(vatDeadline);
         boolean ignoreVat = false;
-
         if (isPassed) {
             boolean exists = dataRepo.existsByUserIdAndMethodAndCardNumAndTransDtBetween(
                     request.getId(), DataMethod.CARD, request.getCardNum(), startDt, endDt);
 
             if (exists) {
                 throw new CustomException(ErrorCode.REPORT_ALREADY_CLOSED);
+
             } else {
                 ignoreVat = true;
             }
@@ -234,8 +238,8 @@ public class DataService {
             String fileData = new String(request.getFile().getBytes(), StandardCharsets.UTF_8);
 
             Map<String, String> paramMap = new HashMap<>();
-            paramMap.put("id", request.getId());
-            paramMap.put("cardNum", request.getCardNum());
+            paramMap.put("id", request.getCleanId());
+            paramMap.put("cardNum", request.getCleanCardNum());
             paramMap.put("startDt", startDt.toString());
             paramMap.put("endDt", endDt.toString());
             paramMap.put("ignoreVat", String.valueOf(ignoreVat));
@@ -245,10 +249,10 @@ public class DataService {
             BatchRequest batchReq = new BatchRequest("cardUploadJob", fileName, fileData, params);
             batchRepo.save(batchReq);
 
-            log.info("B_NO {} 카드({}) In-Memory 배치 대기열 등록 (ignoreVat: {})", request.getId(), request.getCardNum(), ignoreVat);
+            log.info("[SERVICE] B_NO {} 의 카드 파일 업로드 배치 대기열 등록: 카드({}), 부가세포함여부({})", request.getId(), request.getCardNum(), ignoreVat);
 
         } catch (Exception e) {
-            log.error("B_NO {} 카드 파일 업로드 오류", request.getId(), e);
+            log.error("[SERVICE] B_NO {} 의 카드 파일 업로드 오류", request.getId(), e);
             throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }
@@ -264,6 +268,7 @@ public class DataService {
 
         String fileName = file.getOriginalFilename().toLowerCase();
         boolean isValid = false;
+
         for (String ext : extensions) {
             if (fileName.endsWith(ext)) {
                 isValid = true;

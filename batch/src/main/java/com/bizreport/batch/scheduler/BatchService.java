@@ -22,38 +22,45 @@ public class BatchService {
     private final Job dataClosedJob;
 
     public void runUpdateStatus() {
-        log.info("BATCH START: 분기별 국세청 상태 전체 동기화");
+
+        log.info("[BATCH] 분기별 국세청 상태 전체 동기화");
         executeJob(statusUpdateJob);
     }
 
     public void runClosedStatus() {
-        log.info("BATCH START: 폐업일 경과 사업자 상태 자동 전환");
+
+        log.info("[BATCH] 폐업일 경과 사업자 상태 자동 전환");
         executeJob(statusClosedJob);
     }
 
     public void runReportMonthly() {
-        log.info("BATCH START: 월간 리포트 자동 생성");
+
+        log.info("[BATCH] 월간 리포트 자동 생성");
         executeJob(monReportJob);
     }
 
     public void runReportAccumulated() {
-        log.info("BATCH START: 누적 리포트 자동 생성");
+
+        log.info("[BATCH] 누적 리포트 자동 생성");
         executeJob(accReportJob);
     }
 
     public void runDeleteRate() {
-        log.info("BATCH START: 지난 세율 데이터 정리");
+
+        log.info("[BATCH] 지난 세율 데이터 정리");
         executeJob(rateDeleteJob);
     }
 
     public void runClosedData() {
-        log.info("BATCH START: 신고 마감기한 경과 세무 데이터 잠금");
+
+        log.info("[BATCH] 신고 마감기한 경과 세무 데이터 잠금");
         executeJob(dataClosedJob);
     }
 
     @CacheEvict(value = {"taxRate", "indNm"}, allEntries = true)
     public void clearRateCache() {
-        log.info(">>>> [Cache Evict] 새로운 세율이 적용되어 메모리의 세율 및 업종명 캐시를 모두 초기화합니다.");
+
+        log.info("[BATCH] 새로운 세율이 적용되어 메모리의 세율 및 업종명 캐시를 모두 초기화");
     }
 
     private void executeJob(Job job) {
@@ -62,8 +69,9 @@ public class BatchService {
                     .addLong("time", System.currentTimeMillis())
                     .toJobParameters();
             jobLauncher.run(job, params);
+
         } catch (Exception e) {
-            log.error("배치 작업 실행 실패: {}", job.getName(), e);
+            log.error("[BATCH] 해당 배치 작업 실행 실패: {}", job.getName(), e);
         }
     }
 }

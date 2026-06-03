@@ -1,4 +1,4 @@
-package com.bizreport.api.config;
+package com.bizreport.core.config;
 
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;

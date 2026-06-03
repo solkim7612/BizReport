@@ -1,4 +1,4 @@
-package com.bizreport.api.config;
+package com.bizreport.core.config;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.oauth2.GoogleCredentials;

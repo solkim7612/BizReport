@@ -1,9 +1,10 @@
-package com.bizreport.api.domain.report;
+package com.bizreport.api.controller.report;
 
 import com.bizreport.core.dto.report.ReportRequest;
 import com.bizreport.core.dto.report.ReportResponse;
 import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.exception.ErrorCode;
+import com.bizreport.core.service.report.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,7 @@ public class ReportController {
 
     @PostMapping("/batch/accumulated")
     public ResponseEntity<ReportResponse> batchAcc(@RequestBody ReportRequest request) {
+
         if (request.getStartMon() == null || request.getEndMon() == null) {
             throw new CustomException(ErrorCode.INVALID_REPORT_PERIOD);
         }
@@ -34,7 +36,6 @@ public class ReportController {
         }
 
         request.setId(id);
-
         return ResponseEntity.ok(service.getReport(request));
     }
 }

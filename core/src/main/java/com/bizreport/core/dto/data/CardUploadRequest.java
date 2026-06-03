@@ -15,6 +15,14 @@ public class CardUploadRequest {
     private String endMon;
     private MultipartFile file;
 
+    public String getCleanId() {
+        return (id != null) ? id.replaceAll("-", "") : "";
+    }
+
+    public String getCleanCardNum() {
+        return (cardNum != null) ? cardNum.replaceAll("-", "") : "";
+    }
+
     public YearMonth getStartYearMonth() {
         return (startMon != null && !startMon.isBlank()) ? YearMonth.parse(startMon) : null;
     }

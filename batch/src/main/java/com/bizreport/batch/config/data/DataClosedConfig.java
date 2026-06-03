@@ -47,15 +47,14 @@ public class DataClosedConfig {
                     }
 
                     if (closedDt == null) {
-                        log.info(">>>> 마감 기한이 도래한 데이터가 없습니다. (Data Freezing Skip)");
+                        log.info("[BATCH] 마감 기한이 도래한 데이터가 없습니다.");
                         return RepeatStatus.FINISHED;
                     }
 
-                    log.info(">>>> 세무 데이터 마감(Freezing) 배치 시작: {} 이전 데이터 is_mod = false 처리", closedDt);
+                    log.info("[BATCH] 세무 데이터 마감 시작: {} 이전 데이터 수정 불가 처리", closedDt);
 
                     int updatedCount;
                     int totalUpdated = 0;
-
                     do {
                         String sql = """
                                 UPDATE DATA 
@@ -63,16 +62,19 @@ public class DataClosedConfig {
                                 WHERE is_mod = true AND trans_dt <= ? 
                                 LIMIT 1000
                                 """;
+
                         updatedCount = template.update(sql, closedDt.toString());
                         totalUpdated += updatedCount;
 
                         if (updatedCount > 0) {
                             Thread.sleep(100);
                         }
+
                     } while (updatedCount > 0);
 
-                    log.info(">>>> 세무 데이터 마감 배치 완료. 총 {}건 잠금(Lock) 처리됨", totalUpdated);
+                    log.info("[BATCH] 세무 데이터 마감 완료: 총 {}건 잠금 처리됨", totalUpdated);
                     return RepeatStatus.FINISHED;
+
                 }, manager)
                 .build();
     }

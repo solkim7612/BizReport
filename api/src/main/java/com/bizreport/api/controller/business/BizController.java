@@ -1,6 +1,7 @@
-package com.bizreport.api.domain.business;
+package com.bizreport.api.controller.business;
 
 import com.bizreport.core.dto.business.RegisterRequest;
+import com.bizreport.core.service.business.BizService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ public class BizController {
 
     @PostMapping
     public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
+
         service.register(request);
         return ResponseEntity.ok(request.getId() + " 사업자 등록 완료");
     }
@@ -29,6 +31,7 @@ public class BizController {
 
     @PostMapping(value = "/upload/rate", consumes = "multipart/form-data")
     public ResponseEntity<String> uploadRate(@RequestParam("file") MultipartFile file) {
+
         service.uploadRate(file);
         return ResponseEntity.ok("세율 데이터 업로드 완료 및 배치 대기열 등록 성공");
     }

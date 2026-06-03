@@ -1,6 +1,6 @@
 package com.bizreport.batch.config.report;
 
-import com.bizreport.api.domain.report.ReportService;
+import com.bizreport.core.service.report.ReportService;
 import com.bizreport.core.dto.report.ReportCommand;
 import com.bizreport.core.dto.report.ReportResponse;
 import com.bizreport.core.entity.report.PeriodType;
@@ -82,25 +82,29 @@ public class AccReportConfig {
         return user -> {
             LocalDate today = LocalDate.now();
             List<ReportResponse> results = new ArrayList<>();
+
             try {
                 if (today.getMonthValue() == 7) {
                     ReportCommand command = new ReportCommand(user, ReportType.VAT, PeriodType.ACCUMULATED,
                             YearMonth.of(today.getYear(), 1), YearMonth.of(today.getYear(), 6), BigDecimal.ZERO);
+
                     results.add(service.generateReport(command));
 
                 } else if (today.getMonthValue() == 1) {
                     ReportCommand command = new ReportCommand(user, ReportType.VAT, PeriodType.ACCUMULATED,
                             YearMonth.of(today.getYear() - 1, 7), YearMonth.of(today.getYear() - 1, 12), BigDecimal.ZERO);
+
                     results.add(service.generateReport(command));
 
                 } else if (today.getMonthValue() == 5) {
                     ReportCommand command = new ReportCommand(user, ReportType.CIT, PeriodType.ACCUMULATED,
                             YearMonth.of(today.getYear() - 1, 1), YearMonth.of(today.getYear() - 1, 12), BigDecimal.ZERO);
+
                     results.add(service.generateReport(command));
                 }
 
             } catch (Exception e) {
-                log.warn("B_NO {} 누적 리포트 강제 마감 실패: {}", user.getId(), e.getMessage());
+                log.warn("[BATCH] B_NO {} 누적 리포트 강제 마감 실패: {}", user.getId(), e.getMessage());
             }
 
             return results.isEmpty() ? null : results;
@@ -127,7 +131,7 @@ public class AccReportConfig {
                         });
 
                     } catch (JsonProcessingException e) {
-                        log.error("JSON 파싱 에러", e);
+                        log.error("[BATCH] JSON 파싱 에러", e);
                     }
                 }
             }
@@ -143,7 +147,7 @@ public class AccReportConfig {
                 """;
 
                 template.batchUpdate(sql, reportArgs);
-                log.info(">>>> {}건 월간 리포트 (VAT, CIT) Bulk Upsert 완료", reportArgs.size());
+                log.info("[BATCH] 월간 리포트 (VAT, CIT) Upsert 완료: {}건", reportArgs.size());
             }
         };
     }

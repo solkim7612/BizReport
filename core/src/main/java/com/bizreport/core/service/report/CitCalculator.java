@@ -1,4 +1,4 @@
-package com.bizreport.api.domain.report;
+package com.bizreport.core.service.report;
 
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataType;

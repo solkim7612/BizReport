@@ -35,14 +35,13 @@ public class RateDeleteConfig {
     public Step rateDeleteStep() {
         return new StepBuilder("rateDeleteStep", job)
                 .tasklet((contribution, chunkContext) -> {
+
                     int targetYear = LocalDate.now().getYear() - 5;
                     String targetYearStr = String.valueOf(targetYear);
-
-                    log.info(">>>> 세율 데이터 정리 배치 시작: {}년 이하 데이터 안전 삭제(Chunk)", targetYearStr);
+                    log.info("[BATCH] 세율 데이터 정리 시작: {}년 이하 데이터 안전 삭제", targetYearStr);
 
                     int deletedCount;
                     int totalDeleted = 0;
-
                     do {
                         deletedCount = template.update(
                                 "DELETE FROM TAX_RATE WHERE target_year <= ? LIMIT 1000",
@@ -53,9 +52,10 @@ public class RateDeleteConfig {
                         if (deletedCount > 0) {
                             Thread.sleep(100);
                         }
+
                     } while (deletedCount > 0);
 
-                    log.info(">>>> 세율 데이터 정리 배치 완료. 총 {}건 삭제", totalDeleted);
+                    log.info("[BATCH] 세율 데이터 정리 완료: 총 {}건 삭제", totalDeleted);
                     return RepeatStatus.FINISHED;
                 }, manager)
                 .build();

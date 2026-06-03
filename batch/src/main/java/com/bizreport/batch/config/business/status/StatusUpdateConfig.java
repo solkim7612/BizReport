@@ -5,7 +5,7 @@ import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.TaxType;
 import com.bizreport.core.entity.user.Users;
-import com.bizreport.api.config.NTSClient;
+import com.bizreport.core.config.NTSClient;
 import com.bizreport.core.repository.business.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +63,9 @@ public class StatusUpdateConfig {
                 .retry(CustomException.class)
                 .retryLimit(3)
                 .backOffPolicy(backOffPolicy)
+                .skip(CustomException.class)
+                .skip(Exception.class)
+                .skipLimit(100)
                 .build();
     }
 
@@ -90,10 +93,10 @@ public class StatusUpdateConfig {
             List<Object[]> userUpdateArgs = new ArrayList<>();
 
             for (Users user : users) {
+
                 StatusResponse.Data data = dataList.stream()
                         .filter(d -> d.getB_no().equals(user.getId()))
                         .findFirst().orElse(null);
-
                 if (data == null || "국세청에 등록되지 않은 사업자등록번호입니다.".equals(data.getTax_type())) continue;
 
                 TaxType newTaxType = TaxType.ofCode(data.getTax_type_cd());
@@ -101,10 +104,9 @@ public class StatusUpdateConfig {
 
                 boolean isTaxTypeChanged = user.getTaxType() != newTaxType;
                 boolean isSttChanged = user.getStt() != newStt;
-
                 if (!isTaxTypeChanged && !isSttChanged) continue;
 
-                log.info("B_NO {} : 변동 감지 (TaxType: {}->{}, Status: {}->{})",
+                log.info("[BATCH] B_NO {} 의 상태 변동 감지 : TaxType: {}->{}, Status: {}->{}",
                         user.getId(), user.getTaxType(), newTaxType, user.getStt(), newStt);
 
                 LocalDate changeDt = data.parseDate(data.getTax_type_change_dt());
@@ -130,15 +132,14 @@ public class StatusUpdateConfig {
                         "INSERT INTO BIZ_HISTORY (b_id, tax_type, tax_type_change_dt, tax_type_end_dt) VALUES (?, ?, ?, '9999-12-31')",
                         historyInsertArgs);
 
-                log.info(">>>> 과세유형 변동 이력(HISTORY) {}건 갱신 완료", historyUpdateArgs.size());
+                log.info("[BATCH] 과세유형 변동이력(HISTORY) 갱신 완료: {}건", historyUpdateArgs.size());
             }
 
             if (!userUpdateArgs.isEmpty()) {
                 template.batchUpdate(
                         "UPDATE USERS SET tax_type = ?, b_stt = ?, tax_type_change_dt = ?, end_dt = ? WHERE b_id = ?",
                         userUpdateArgs);
-
-                log.info(">>>> 사용자 마스터 정보(USERS) {}건 갱신 완료", userUpdateArgs.size());
+                log.info("[BATCH] 사용자 정보(USERS) 갱신 완료: {}건", userUpdateArgs.size());
             }
         };
     }

@@ -1,12 +1,10 @@
-package com.bizreport.api.config;
+package com.bizreport.core.config;
 
 import com.bizreport.core.dto.business.StatusRequest;
 import com.bizreport.core.dto.business.StatusResponse;
 import com.bizreport.core.entity.exception.CustomException;
 import com.bizreport.core.entity.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,17 +18,25 @@ import java.util.List;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class NTSClient {
     private final RestTemplate restTemplate;
+    private final String url;
+    private final String key;
 
-    @Value("${api.nts.url}")
-    private String url;
+    public NTSClient(RestTemplate restTemplate, org.springframework.core.env.Environment env) {
+        this.restTemplate = restTemplate;
 
-    @Value("${api.nts.key}")
-    private String key;
+        this.url = env.getProperty("api.nts.url");
+        this.key = env.getProperty("NTS_STATUS_KEY");
+        log.info("[NTS API] URL: {}, Key: {}", url, key);
+
+        if (key == null) {
+            throw new IllegalStateException("NTS_STATUS_KEY가 설정되지 않았습니다!");
+        }
+    }
 
     public StatusResponse.Data status(String id) {
+
         return status(Collections.singletonList(id)).stream()
                 .findFirst()
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -55,17 +61,19 @@ public class NTSClient {
             try { Thread.sleep(200); } catch (InterruptedException ignored) {}
 
             if (response == null || !"OK".equals(response.getStatus_code())) {
-                log.error("국세청 API 비정상 응답");
+                log.error("[NTS API] 국세청 API 비정상 응답");
                 throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
             }
+
             if (response.getData() == null) return Collections.emptyList();
 
             return response.getData();
 
         } catch (CustomException e) {
             throw e;
+
         } catch (Exception e) {
-            log.error("국세청 상태조회 API 통신 실패. b_no count: {}", userList.size(), e);
+            log.error("[NTS API] 국세청 상태조회 API 통신 실패: {}건", userList.size(), e);
             throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
         }
     }

@@ -27,6 +27,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Configuration
@@ -70,7 +72,19 @@ public class RateUploadConfig {
         BatchRequest request = repository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("대기열에서 데이터를 찾을 수 없습니다. ID: " + requestId));
 
-        Resource resource = new ByteArrayResource(request.getFileData().getBytes(StandardCharsets.UTF_8)) {
+        String rawData = request.getFileData();
+        Pattern pattern = Pattern.compile("\"([^\"]*)\"", Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(rawData);
+        StringBuilder sb = new StringBuilder();
+
+        while (matcher.find()) {
+            String content = matcher.group(1).replaceAll("\\r?\\n", " ");
+            matcher.appendReplacement(sb, "\"" + content + "\"");
+        }
+        matcher.appendTail(sb);
+        String parsingData = sb.toString();
+
+        Resource resource = new ByteArrayResource(parsingData.getBytes(StandardCharsets.UTF_8)) {
             @Override
             public String getFilename() {
                 return fileName;
@@ -82,11 +96,14 @@ public class RateUploadConfig {
                 .resource(resource)
                 .encoding("UTF-8")
                 .delimited()
+                .quoteCharacter('"')
                 .names("year", "indCd", "indNm", "category1", "category2", "category3", "msg", "expRt", "overExpRt", "stndExpRt")
                 .linesToSkip(3)
-                .fieldSetMapper(new BeanWrapperFieldSetMapper<>() {{
-                    setTargetType(RateFileRequest.class);
-                }})
+                .fieldSetMapper(new BeanWrapperFieldSetMapper<>() {
+                    {
+                        setTargetType(RateFileRequest.class);
+                    }
+                })
                 .build();
     }
 
@@ -94,7 +111,7 @@ public class RateUploadConfig {
     public JdbcBatchItemWriter<TaxRate> rateWriter() {
         String sql = """
                     INSERT INTO TAX_RATE (ind_cd, target_year, ind_nm, vat_rt, exp_rt)
-                    VALUES (:id.indCd, :id.year, :indNm, :vatRt, :expRt)
+                    VALUES (?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         ind_nm = VALUES(ind_nm),
                         vat_rt = VALUES(vat_rt),
@@ -104,7 +121,13 @@ public class RateUploadConfig {
         return new JdbcBatchItemWriterBuilder<TaxRate>()
                 .dataSource(dataSource)
                 .sql(sql)
-                .beanMapped()
+                .itemPreparedStatementSetter((taxRate, ps) -> {
+                    ps.setString(1, taxRate.getId().getIndCd());
+                    ps.setString(2, taxRate.getId().getYear());
+                    ps.setString(3, taxRate.getIndNm());
+                    ps.setBigDecimal(4, taxRate.getVatRt());
+                    ps.setBigDecimal(5, taxRate.getExpRt());
+                })
                 .build();
     }
 }

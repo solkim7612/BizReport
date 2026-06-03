@@ -76,7 +76,6 @@ public class StatusClosedConfig {
                 LocalDate closeDt = user.getEndDt() != null ? user.getEndDt() : LocalDate.now();
 
                 historyUpdateArgs.add(new Object[]{ closeDt, user.getId() });
-
                 userUpdateArgs.add(new Object[]{ Status.CLOSED.name(), user.getId() });
             }
 
@@ -91,7 +90,7 @@ public class StatusClosedConfig {
                 String userSql = "UPDATE USERS SET b_stt = ? WHERE b_id = ?";
                 template.batchUpdate(userSql, userUpdateArgs);
 
-                log.info(">>>> {}건의 폐업 사업자 상태 전환 및 이력 마감(Bulk) 완료", userUpdateArgs.size());
+                log.info("[BATCH] 폐업 사업자 상태 전환 및 이력 마감 완료: {}건", userUpdateArgs.size());
             }
         };
     }

@@ -1,4 +1,4 @@
-package com.bizreport.api.domain.report;
+package com.bizreport.core.service.report;
 
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataType;
@@ -28,7 +28,7 @@ public class VatCalculator implements TaxCalculator {
     public Result calc(Users user, List<Data> dataList, TaxRate rate, BigDecimal prepaidTax) {
         boolean isGeneral = (user.getTaxType() == TaxType.GENERAL);
 
-        BigDecimal vatRt = rate.getVatRt().getRate().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        BigDecimal vatRt = rate.getVatRt().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
         BigDecimal sales = isGeneral
                 ? sumBy(dataList, DataType.SALES, Data::getNetValue)

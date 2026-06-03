@@ -23,6 +23,9 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-mysql")
 
+    implementation("me.paulschwarz:spring-dotenv:4.0.0")
+    implementation("com.google.cloud:google-cloud-vision:3.34.0")
+
     testImplementation("com.h2database:h2")
 
     constraints {

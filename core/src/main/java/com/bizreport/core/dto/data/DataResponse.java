@@ -3,6 +3,7 @@ package com.bizreport.core.dto.data;
 import com.bizreport.core.entity.data.Data;
 import lombok.Builder;
 import lombok.Getter;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 

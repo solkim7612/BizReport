@@ -16,9 +16,9 @@ CREATE TABLE IF NOT EXISTS `USERS` (
 CREATE TABLE IF NOT EXISTS `TAX_RATE` (
                                           `ind_cd` VARCHAR(10) NOT NULL COMMENT '업종코드',
     `target_year` VARCHAR(4) NOT NULL COMMENT '귀속연도',
-    `ind_nm` VARCHAR(10) COMMENT '업종명',
-    `vat_rt` ENUM('RT_15', 'RT_20', 'RT_25', 'RT_40', 'RT_30') NOT NULL COMMENT '업종별 부가가치율',
-    `exp_rt` DECIMAL(5, 4) NOT NULL COMMENT '단순경비율',
+    `ind_nm` VARCHAR(255) COMMENT '업종명',
+    `vat_rt` DECIMAL(2, 0) NOT NULL COMMENT '업종별 부가가치율',
+    `exp_rt` DECIMAL(3, 1) NOT NULL COMMENT '단순경비율',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`ind_cd`, `target_year`),

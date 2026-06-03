@@ -21,15 +21,14 @@ public class TaxRate {
     @Column(name = "ind_nm")
     private String indNm;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "vat_rt", nullable = false)
-    private VatRate vatRt;
+    @Column(name = "vat_rt", nullable = false, precision = 2, scale =0)
+    private BigDecimal vatRt;
 
     @Column(name = "exp_rt", nullable = false, precision = 3, scale = 1)
     private BigDecimal expRt;
 
     @Builder
-    public TaxRate(RateId id, String indNm, VatRate vatRt, BigDecimal expRt) {
+    public TaxRate(RateId id, String indNm, BigDecimal vatRt, BigDecimal expRt) {
         this.id = id;
         this.indNm = indNm;
         this.vatRt = vatRt;

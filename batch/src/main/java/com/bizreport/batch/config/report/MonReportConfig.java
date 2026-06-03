@@ -1,6 +1,5 @@
 package com.bizreport.batch.config.report;
 
-import com.bizreport.api.domain.report.ReportService;
 import com.bizreport.core.dto.report.ReportCommand;
 import com.bizreport.core.dto.report.ReportResponse;
 import com.bizreport.core.entity.report.PeriodType;
@@ -8,6 +7,7 @@ import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.repository.business.UserRepository;
+import com.bizreport.core.service.report.ReportService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -94,7 +94,7 @@ public class MonReportConfig {
                 return results;
 
             } catch (Exception e) {
-                log.warn("B_NO {} 리포트 생성 실패 (Skip): {}", user.getId(), e.getMessage());
+                log.warn("[BATCH] B_NO {} 리포트 생성 실패 (Skip): {}", user.getId(), e.getMessage());
                 return null;
             }
         };
@@ -120,7 +120,7 @@ public class MonReportConfig {
                         });
 
                     } catch (JsonProcessingException e) {
-                        log.error("JSON 파싱 에러", e);
+                        log.error("[BATCH] JSON 파싱 에러", e);
                     }
                 }
             }
@@ -136,7 +136,7 @@ public class MonReportConfig {
                 """;
 
                 template.batchUpdate(sql, reportArgs);
-                log.info(">>>> {}건 월간 리포트 (VAT, CIT) Bulk Upsert 완료", reportArgs.size());
+                log.info("[BATCH] 월간 리포트 (VAT, CIT) Upsert 완료: {}건", reportArgs.size());
             }
         };
     }

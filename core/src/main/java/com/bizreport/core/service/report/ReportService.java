@@ -1,4 +1,4 @@
-package com.bizreport.api.domain.report;
+package com.bizreport.core.service.report;
 
 import com.bizreport.core.dto.report.ReportCommand;
 import com.bizreport.core.dto.report.ReportRequest;
@@ -57,6 +57,7 @@ public class ReportService {
         if (LocalDate.now().isAfter(deadline)) {
             Reports report = reportRepo.findByUserIdAndReportTypeAndPeriodTypeAndPeriod(user.getId(), request.getReportType(), PeriodType.ACCUMULATED, period)
                     .orElseThrow(() -> new CustomException(ErrorCode.REPORT_ALREADY_CLOSED));
+
             return ReportResponse.from(report);
         }
 
@@ -118,6 +119,7 @@ public class ReportService {
         if (!LocalDate.now().isAfter(deadline)) {
             report.getCalc().put("isFinalized", false);
             report.getCalc().put("notice", "마감 전 리포트입니다. 추후 데이터 변동에 따라 세액이 달라질 수 있습니다.");
+
         } else {
             report.getCalc().put("isFinalized", true);
         }

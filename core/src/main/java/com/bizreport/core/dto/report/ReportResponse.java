@@ -1,10 +1,11 @@
 package com.bizreport.core.dto.report;
 
 import com.bizreport.core.entity.report.PeriodType;
-import com.bizreport.core.entity.report.Reports;
 import com.bizreport.core.entity.report.ReportType;
+import com.bizreport.core.entity.report.Reports;
 import lombok.Builder;
 import lombok.Getter;
+
 import java.math.BigDecimal;
 import java.util.Map;
 

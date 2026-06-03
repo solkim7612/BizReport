@@ -1,6 +1,6 @@
-package com.bizreport.api.domain.business;
+package com.bizreport.core.service.business;
 
-import com.bizreport.api.config.NTSClient;
+import com.bizreport.core.config.NTSClient;
 import com.bizreport.core.dto.business.RegisterRequest;
 import com.bizreport.core.dto.business.StatusResponse;
 import com.bizreport.core.entity.batch.BatchRequest;
@@ -38,14 +38,15 @@ public class BizService {
 
             Users user = userRepo.findById(request.getId())
                     .orElseGet(() -> userRepo.save(data.toUserEntity(request, indNm)));
-
             historyRepo.save(user.toHistEntity(user));
-            log.info("사업자 등록 완료: {}", user.getId());
+
+            log.info("[SERVICE] 사업자 등록 완료: B_NO {}", user.getId());
 
         } catch (CustomException e) {
             throw e;
+
         } catch (Exception e) {
-            log.error("국세청 상태 조회 API 실패: {}", request.getId(), e);
+            log.error("[SERVICE] 국세청 상태 조회 API 실패: B_NO {}", request.getId(), e);
             throw new CustomException(ErrorCode.EXTERNAL_API_FAILED);
         }
     }
@@ -60,10 +61,10 @@ public class BizService {
             BatchRequest request = new BatchRequest("rateJob", fileName, fileData, null);
             batchRepo.save(request);
 
-            log.info("세율 데이터 DB 대기열 등록 완료 (In-Memory 처리): {}", fileName);
+            log.info("[SERVICE] 세율 데이터 DB 대기열 등록 완료: 파일[{}] 업로드", fileName);
 
         } catch (Exception e) {
-            log.error("파일 업로드 및 대기열 등록 중 오류 발생", e);
+            log.error("[SERVICE] 파일 업로드 및 대기열 등록 중 오류 발생", e);
             throw new CustomException(ErrorCode.BATCH_REGISTRATION_FAILED);
         }
     }
@@ -76,7 +77,7 @@ public class BizService {
         String indNm = getIndNm(request.getIndCd());
 
         user.update(request.getNm(), request.getIndCd(), indNm);
-        log.info("B_NO {} : 사용자 정보 수정 완료", user.getId());
+        log.info("[SERVICE] 사용자 정보 수정 완료: B_NO {}", user.getId());
     }
 
     // ==========================================

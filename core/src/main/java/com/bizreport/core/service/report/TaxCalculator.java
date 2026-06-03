@@ -1,4 +1,4 @@
-package com.bizreport.api.domain.report;
+package com.bizreport.core.service.report;
 
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.rate.TaxRate;
@@ -12,5 +12,6 @@ import java.util.Map;
 public interface TaxCalculator {
     ReportType getType();
     Result calc(Users user, List<Data> dataList, TaxRate rate, BigDecimal prepaidTax);
+
     record Result(BigDecimal tax, Map<String, Object> calc) {}
 }

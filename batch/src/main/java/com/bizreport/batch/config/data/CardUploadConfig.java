@@ -34,6 +34,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
 import java.util.Map;
 
 @Slf4j
@@ -70,8 +71,9 @@ public class CardUploadConfig {
                     template.execute("CREATE TABLE IF NOT EXISTS " + tempTableName + " LIKE DATA");
                     template.execute("TRUNCATE TABLE " + tempTableName);
 
-                    log.info("B_NO {} : 동적 격리 테이블 [{}] 생성 완료", id, tempTableName);
+                    log.info("[BATCH] B_NO {} 의 임시 테이블 [{}] 생성 완료", id, tempTableName);
                     return RepeatStatus.FINISHED;
+
                 }, manager)
                 .build();
     }
@@ -145,13 +147,25 @@ public class CardUploadConfig {
                 INSERT INTO %s 
                 (b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price) 
                 VALUES 
-                (:user.id, :type, :method, :isE, :isMod, :cardNum, :vendorId, :transDt, :netValue, :vatValue, :totalPrice)
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.formatted(tempTableName);
 
         return new JdbcBatchItemWriterBuilder<Data>()
                 .dataSource(dataSource)
                 .sql(sql)
-                .beanMapped()
+                .itemPreparedStatementSetter((data, ps) -> {
+                    ps.setString(1, data.getUser().getId());
+                    ps.setString(2, data.getType().name());
+                    ps.setString(3, data.getMethod().name());
+                    ps.setBoolean(4, data.isE());
+                    ps.setBoolean(5, data.isMod());
+                    ps.setString(6, data.getCardNum());
+                    ps.setString(7, data.getVendorId());
+                    ps.setDate(8, java.sql.Date.valueOf(data.getTransDt()));
+                    ps.setBigDecimal(9, data.getNetValue());
+                    ps.setBigDecimal(10, data.getVatValue());
+                    ps.setBigDecimal(11, data.getTotalPrice());
+                })
                 .build();
     }
 
@@ -162,32 +176,36 @@ public class CardUploadConfig {
                     Map<String, Object> params = chunkContext.getStepContext().getJobParameters();
                     String id = (String) params.get("id");
                     String cardNum = (String) params.get("cardNum");
-                    String startDtStr = (String) params.get("startDt");
-                    String endDtStr = (String) params.get("endDt");
                     String tempTableName = "TEMP_DATA_" + id;
 
-                    log.info("B_NO {} : 카드({}) 기간({} ~ {}) 데이터 Swap 처리 시작", id, cardNum, startDtStr, endDtStr);
+                    Map<String, Object> range = template.queryForMap("SELECT MIN(trans_dt) as minDt, MAX(trans_dt) as maxDt FROM " + tempTableName);
+                    Date minDt = (Date) range.get("minDt");
+                    Date maxDt = (Date) range.get("maxDt");
+
+                    log.info("[BATCH] B_NO {} 의 카드({}) 데이터 기반 Swap 시작: 삭제 범위 {} ~ {}", id, cardNum, minDt, maxDt);
 
                     String deleteSql = """
                             DELETE FROM DATA 
                             WHERE b_id = ? 
                               AND data_method = 'CARD' 
-                              AND card_num = ? 
+                              AND card_num = ?
                               AND trans_dt BETWEEN ? AND ?
                             """;
-                    int deleted = template.update(deleteSql, id, cardNum, startDtStr, endDtStr);
+
+                    int deleted = template.update(deleteSql, id, cardNum, minDt, maxDt);
+                    log.info("[BATCH] B_NO {} 의 삭제된 기존 데이터 건수: {}건", id, deleted);
 
                     String insertSql = """
                             INSERT INTO DATA (b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price) 
                             SELECT b_id, data_type, data_method, is_e, is_mod, card_num, vendor_id, trans_dt, net_value, vat_value, total_price 
-                            FROM %s 
-                            WHERE trans_dt BETWEEN ? AND ?
+                            FROM %s
                             """.formatted(tempTableName);
-                    int inserted = template.update(insertSql, startDtStr, endDtStr);
 
-                    log.info("B_NO {} : 기존 데이터 {}건 삭제 / 신규 데이터 {}건 적재 Swap 완료", id, deleted, inserted);
+                    int inserted = template.update(insertSql);
+                    log.info("[BATCH] B_NO {} 의 신규 데이터 적재 완료: {}건", id, inserted);
 
                     return RepeatStatus.FINISHED;
+
                 }, manager)
                 .build();
     }
@@ -200,9 +218,10 @@ public class CardUploadConfig {
                     String tempTableName = "TEMP_DATA_" + id;
 
                     template.execute("DROP TABLE IF EXISTS " + tempTableName);
-                    log.info("B_NO {} : 동적 격리 테이블 [{}] Drop 정리 완료", id, tempTableName);
 
+                    log.info("[BATCH] B_NO {} 의 임시 테이블 [{}] Drop 완료", id, tempTableName);
                     return RepeatStatus.FINISHED;
+
                 }, manager)
                 .build();
     }

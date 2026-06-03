@@ -39,7 +39,7 @@ public class BatchScheduler {
         List<BatchRequest> requests = repository.findByStatusOrderByCreatedAtAsc(BatchStatus.READY);
 
         if (!requests.isEmpty()) {
-            log.info(">>>> 대기열 처리 시작: 총 {}건의 Batch Request 발견", requests.size());
+            log.info("[BATCH] 대기열 처리 시작: {}건", requests.size());
         }
 
         for (BatchRequest request : requests) {
@@ -63,21 +63,23 @@ public class BatchScheduler {
 
                 if (execution.getStatus().isUnsuccessful()) {
                     request.fail();
-                    log.error("배치 큐 처리 실패 (Batch Internal Error) [ID: {}]", request.getId());
+                    log.error("[BATCH] 배치 큐 처리 실패: ID {}", request.getId());
+
                 } else {
                     request.complete();
-                    log.info("배치 큐 처리 완료 [ID: {}]", request.getId());
+                    log.info("[BATCH] 배치 큐 처리 완료: ID {}", request.getId());
 
                     if ("rateJob".equals(request.getJobName())) {
                         service.clearRateCache();
                     }
                 }
+
                 repository.saveAndFlush(request);
 
             } catch (Exception e) {
                 request.fail();
                 repository.saveAndFlush(request);
-                log.error("배치 큐 런타임 에러 [ID: {}]: {}", request.getId(), e.getMessage());
+                log.error("[BATCH] 배치 큐 런타임 에러: ID {} [{}]", request.getId(), e.getMessage());
             }
         }
     }
@@ -91,7 +93,7 @@ public class BatchScheduler {
         int recoveredCount = repository.recoverZombieRequests(threshold);
 
         if (recoveredCount > 0) {
-            log.warn("[장애 복구] 서버 다운으로 멈춰있던 좀비 큐 {}건을 READY 상태로 롤백(재시도) 처리했습니다.", recoveredCount);
+            log.warn("[BATCH] 서버 다운으로 멈춰있던 좀비 큐를 READY 상태로 롤백(재시도) 처리: {}건", recoveredCount);
         }
     }
 
@@ -103,8 +105,9 @@ public class BatchScheduler {
     public void runUpdateStatus() {
         try {
             service.runUpdateStatus();
+
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 분기별 국세청 상태 동기화 실패", e);
+            log.error("[BATCH] 분기별 국세청 상태 동기화 실패", e);
         }
     }
 
@@ -113,8 +116,9 @@ public class BatchScheduler {
     public void runClosedStatus() {
         try {
             service.runClosedStatus();
+
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 폐업일 경과 사업자 상태 전환 실패", e);
+            log.error("[BATCH] 폐업일 경과 사업자 상태 전환 실패", e);
         }
     }
 
@@ -123,8 +127,9 @@ public class BatchScheduler {
     public void runReportMonthly() {
         try {
             service.runReportMonthly();
+
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 월간 리포트 생성 실패", e);
+            log.error("[BATCH] 월간 리포트 생성 실패", e);
         }
     }
 
@@ -133,8 +138,9 @@ public class BatchScheduler {
     public void runReportAccumulated() {
         try {
             service.runReportAccumulated();
+
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 누적 리포트 생성 실패", e);
+            log.error("[BATCH] 누적 리포트 생성 실패", e);
         }
     }
 
@@ -143,8 +149,9 @@ public class BatchScheduler {
     public void runDeleteRate() {
         try {
             service.runDeleteRate();
+
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 지난 세율 데이터 정리 실패", e);
+            log.error("[BATCH] 지난 세율 데이터 정리 실패", e);
         }
     }
 
@@ -153,8 +160,9 @@ public class BatchScheduler {
     public void runDataClosed() {
         try {
             service.runClosedData();
+
         } catch (Exception e) {
-            log.error("[BATCH ERROR] 세무 데이터 마감(Freezing) 처리 실패", e);
+            log.error("[BATCH] 세무 데이터 마감 실패", e);
         }
     }
 }
