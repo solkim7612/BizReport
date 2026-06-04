@@ -37,8 +37,8 @@
 ```mermaid
 graph TD
     subgraph "External Integration"
-        NTS Status API
-        Google Vision API (OCR)
+        NTS[NTS Status API]
+        GVA[Google Vision API]
     end
 
     subgraph "BizReport System"
