@@ -62,27 +62,23 @@ graph TD
     end
 
     %% 흐름 연결
-    API -->|1. 서비스 요청| CORE
+    API --> CORE
     
     %% Core 모듈의 기능적 흐름
     CORE -->|OCR| GVA
+    CORE --> NTS
     CORE -->|대기열 등록| REQ
     CORE --> DATA
     CORE --> USR
     
     %% Batch 모듈의 흐름
     BATCH -.->|Polling| REQ
-    BATCH -->|락 획득| SHED
+    BATCH -.->|락 획득| SHED
+    SHED -->|상태 동기화| NTS
     
     %% 배치와 외부 연동/DB
-    BATCH -->|상태 동기화| NTS
     NTS --> USR
     BATCH --> DATA
-    
-    %% 스타일링
-    classDef ext fill:#f9f,stroke:#333;
-    classDef mod fill:#e1f5fe,stroke:#0277bd;
-    classDef db fill:#fff9c4,stroke:#fbc02d;
     
     class NTS,GVA ext;
     class API,CORE,BATCH mod;
