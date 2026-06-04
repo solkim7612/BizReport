@@ -36,41 +36,57 @@
 
 ```mermaid
 graph TD
-    subgraph EXT[External Integration]
+    %% 레이어별 배치
+    subgraph EXT [External Integration]
         NTS[NTS Status API]
         GVA[Google Vision API]
     end
 
-    subgraph SYS[BizReport System]
-        direction TB
-        API["api Module<br/>Controllers"]
-        CORE["core Module<br/>Entity, Repository, Service"]
-        BATCH["batch Module<br/>Time/Event-Driven Batch"]
+    subgraph API_L [api Module]
+        API[REST API Controllers]
     end
 
-    subgraph DB[Database]
-        SHED[shedlock]
+    subgraph CORE_L [core Module]
+        CORE[Service]
+    end
+
+    subgraph BATCH_L [batch Module]
+        BATCH[Time/Event-Driven Batch]
+    end
+
+    subgraph DB [Database]
         REQ[batch_requests]
+        SHED[shedlock]
         DATA[DATA, TAX_RATE, REPORTS]
         USR[USERS, BIZ_HISTORY]
     end
 
-    %% API 모듈 흐름
-    API --> CORE
+    %% 흐름 연결
+    API -->|1. 서비스 요청| CORE
     
-    %% Core 모듈 흐름
+    %% Core 모듈의 기능적 흐름
     CORE -->|OCR| GVA
-    CORE --> NTS
-    CORE -->|배치 대기열 등록| REQ
+    CORE -->|대기열 등록| REQ
     CORE --> DATA
     CORE --> USR
     
-    %% Batch 모듈 흐름
+    %% Batch 모듈의 흐름
     BATCH -.->|Polling| REQ
     BATCH -->|락 획득| SHED
-    SHED -->|상태 동기화| NTS
+    
+    %% 배치와 외부 연동/DB
+    BATCH -->|상태 동기화| NTS
     NTS --> USR
-    SHED --> DATA
+    BATCH --> DATA
+    
+    %% 스타일링
+    classDef ext fill:#f9f,stroke:#333;
+    classDef mod fill:#e1f5fe,stroke:#0277bd;
+    classDef db fill:#fff9c4,stroke:#fbc02d;
+    
+    class NTS,GVA ext;
+    class API,CORE,BATCH mod;
+    class REQ,SHED,DATA,USR db;
 ```
 
 <br/>
