@@ -37,17 +37,59 @@
 ```mermaid
 graph TD
     subgraph "External Integration"
-        NTS[국세청 홈택스 API]
-        CARD[카드사 파일 시스템]
+        NTS Status API
+        Google Vision API (OCR)
     end
 
     subgraph "BizReport System"
         direction TB
-        API[:api Module] -->|비동기 Job 등록| QUEUE[(Batch Requests)]
-        QUEUE -- Polling --> BATCH[:batch Module]
-        BATCH -- 데이터 적재 --> DATA[(DATA/REPORT)]
-        API --> CORE[:core Module]
+        
+        subgraph ":api Module (Interface Layer)"
+            API[REST API Controllers]
+            Service[Business Logic & Facade]
+            note1[OCR 처리, 배치 대기열 등록,<br/>사업자/데이터 CRUD,<br/>리포트 조회]
+        end
+        
+        subgraph ":batch Module (Infra/Async Layer)"
+            subgraph "Event-Driven"
+                Q[Batch Requests Queue]
+                Scheduler[Event Poller]
+            end
+            subgraph "Time-Driven"
+                Cron[Time-based Schedulers]
+            end
+            Writers[Bulk/Swap Writers]
+        end
+        
+        subgraph ":core Module (Domain Layer)"
+            Entities[Entities & Repositories]
+            Engine[Tax Calculation Engine]
+        end
     end
+
+    subgraph "Database (MySQL)"
+        DATA[(DATA/HISTORY/TAX_RATE)]
+        REPORTS[(REPORTS)]
+        QUEUE[(Batch Queue DB)]
+    end
+
+    %% Flows
+    API -->|1. OCR/대기열 등록/CRUD| Service
+    Service -->|2. 데이터 처리| Entities
+    Service -->|OCR| GVA
+    
+    API -->|대기열 등록| QUEUE
+    
+    Scheduler -->|1. Polling| QUEUE
+    Scheduler -->|2. Swap/Bulk| Writers
+    Writers -->|3. 적재| DATA
+    
+    Cron -->|1. NTS 상태 동기화| NTS
+    NTS -->|API 응답| Cron
+    Cron -->|2. 업데이트| Entities
+    
+    Entities -->|저장/조회| DATA
+    Entities -->|리포트| REPORTS
 ```
 
 <br/>
@@ -128,7 +170,7 @@ graph LR
 
 ---
 
-## 6. Core Domain & Business Logic
+## 6. Business Logic
 ### 6.1. 단일 데이터 원천
 - 세금 종류(부가세, 소득세)별로 데이터를 중복 적재하지 않고, 동일한 DATA 엔티티를 공유
 - 인터페이스를 통한 전략 패턴을 적용하여 같은 데이터를 읽어 서로 다른 산출 로직(과세유형, 신고타입)을 적용
@@ -181,9 +223,30 @@ graph LR
 ---
 
 ## 9. API Documentation
-- Base URL: http://localhost:8080
-- Postman Collection: BizReport_API_Collection.json
-// TODO: 모든 api 표 추가
+| 분류 | 기능               | Method | URL | 설명                       |
+| :--- |:-----------------| :--- | :--- |:-------------------------|
+| Business | 사업자 등록           | POST | /api/v1/business | 신규 사업자 등록                |
+| Business | 사업자 정보 수정        | PATCH | /api/v1/business/{id} | 기존 사업자 정보 변경             |
+| Business | 업종별 세율 업로드       | POST | /api/v1/business/upload/rate | 배치 대기열에 등록               |
+| Data | 영수증 텍스트 추출 (OCR) | POST | /api/v1/data/receipt/extract | 이미지 기반 세무 데이터 추출         |
+| Data | 수기 데이터 생성        | POST | /api/v1/data | 개별 수기 세무 데이터 입력          |
+| Data | 데이터 조회           | GET | /api/v1/data/{id} | 기간/유형별 세무 데이터 조회         |
+| Data | 데이터 금액 수정        | PATCH | /api/v1/data/{id} | 수정 가능한 데이터 금액 변경         |
+| Data | 데이터 삭제           | DELETE | /api/v1/data/{id} | 마감기한이 지나지 않은 데이터 삭제      |
+| Data | 더미 데이터 생성        | POST | /api/v1/data/generate/mock | 홈택스 스크래핑 대체              |
+| Data | 업로드 양식 다운로드      | GET | /api/v1/data/download/format | CSV 샘플 다운로드              |
+| Data | 카드 내역 업로드        | POST | /api/v1/data/upload/card | 배치 대기열에 등록               |
+| Report | 기간 리포트 생성        | POST | /api/v1/reports/batch/accumulated | 원하는 기간 리포트 생성 요청         |
+| Report | 리포트 조회           | GET | /api/v1/reports/view/{id} | 월별/기간별 세금 리포트 조회         |
+| Batch | 배치 대기열 시작        | POST | /api/v1/batch/queue/run | 대기 중인 배치 큐 즉시 실행         |
+| Batch | 지난 세율 정리         | POST | /api/v1/batch/rate/delete | 5년 이상 지난 세율 데이터 삭제       |
+| Batch | 사업자 상태 동기화       | POST | /api/v1/batch/status/update | 국세청 API 기반 사업자 상태 갱신     |
+| Batch | 사업자 상태 폐업 전환     | POST | /api/v1/batch/status/closed | 폐업일이 지난 사업자 폐업 상태로 일괄 전환 |
+| Batch | 데이터 마감           | POST | /api/v1/batch/data/closed | 신고 마감기한이 지난 세무 데이터 마감    |
+| Batch | 월간 리포트 생성        | POST | /api/v1/batch/report/monthly | 당월 예상 세액 리포트 생성          |
+| Batch | 기간 리포트 생성        | POST | /api/v1/batch/report/accumulated | 분기별 누적 예상 세액 리포트 생성      |
+| Batch | 캐시 초기화           | POST | /api/v1/batch/cache/clear | 업종명 및 세율 캐시 초기화          |
+
 
 <br/>
 

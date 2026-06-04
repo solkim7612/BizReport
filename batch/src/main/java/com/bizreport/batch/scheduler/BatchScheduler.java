@@ -133,7 +133,7 @@ public class BatchScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 4 16 1,5,7 ?")
+    @Scheduled(cron = "0 0 4 16 1,4,7,10 ?")
     @SchedulerLock(name = "accReportLock", lockAtLeastFor = "1m", lockAtMostFor = "2h")
     public void runReportAccumulated() {
         try {

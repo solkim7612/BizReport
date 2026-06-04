@@ -147,7 +147,7 @@ public class AccReportConfig {
                 """;
 
                 template.batchUpdate(sql, reportArgs);
-                log.info("[BATCH] 월간 리포트 (VAT, CIT) Upsert 완료: {}건", reportArgs.size());
+                log.info("[BATCH] 누적 리포트 (VAT, CIT) Upsert 완료: {}건", reportArgs.size());
             }
         };
     }
