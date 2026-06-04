@@ -61,10 +61,10 @@ graph TD
         USR[USERS, BIZ_HISTORY]
     end
 
-    %% 흐름 연결
+    %% Api 모듈의 흐름
     API --> CORE
     
-    %% Core 모듈의 기능적 흐름
+    %% Core 모듈의 흐름
     CORE -->|OCR| GVA
     CORE --> NTS
     CORE -->|대기열 등록| REQ
@@ -74,11 +74,9 @@ graph TD
     %% Batch 모듈의 흐름
     BATCH -.->|Polling| REQ
     BATCH -.->|락 획득| SHED
-    SHED -->|상태 동기화| NTS
-    
-    %% 배치와 외부 연동/DB
+    SHED --> NTS
     NTS --> USR
-    BATCH --> DATA
+    SHED --> DATA
     
     class NTS,GVA ext;
     class API,CORE,BATCH mod;
