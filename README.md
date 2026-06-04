@@ -42,9 +42,10 @@ graph TD
     end
 
     subgraph SYS[BizReport System]
-        API[:api Module<br/>Controllers]
-        CORE[:core Module<br/>Entity, Repository, Service]
-        BATCH[:batch Module<br/>Time/Event-Driven Batch]
+        direction TB
+        API["api Module<br/>Controllers"]
+        CORE["core Module<br/>Entity, Repository, Service"]
+        BATCH["batch Module<br/>Time/Event-Driven Batch"]
     end
 
     subgraph DB[(Database)]
