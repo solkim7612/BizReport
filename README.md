@@ -32,124 +32,51 @@
 
 ---
 
-## 3. Module Architecture
+## 3. System Architecture
 
 ```mermaid
 graph TD
-    subgraph "External Integration"
+    subgraph EXT[External Integration]
         NTS[NTS Status API]
         GVA[Google Vision API]
     end
 
-    subgraph "BizReport System"
-        direction TB
-        
-        subgraph ":api Module (Interface Layer)"
-            API[REST API Controllers]
-            Service[Business Logic & Facade]
-            note1[OCR 처리, 배치 대기열 등록,<br/>사업자/데이터 CRUD,<br/>리포트 조회]
-        end
-        
-        subgraph ":batch Module (Infra/Async Layer)"
-            subgraph "Event-Driven"
-                Q[Batch Requests Queue]
-                Scheduler[Event Poller]
-            end
-            subgraph "Time-Driven"
-                Cron[Time-based Schedulers]
-            end
-            Writers[Bulk/Swap Writers]
-        end
-        
-        subgraph ":core Module (Domain Layer)"
-            Entities[Entities & Repositories]
-            Engine[Tax Calculation Engine]
-        end
+    subgraph SYS[BizReport System]
+        API[:api Module<br/>Controllers]
+        CORE[:core Module<br/>Entity, Repository, Service]
+        BATCH[:batch Module<br/>Time/Event-Driven Batch]
     end
 
-    subgraph "Database (MySQL)"
-        DATA[(DATA/HISTORY/TAX_RATE)]
-        REPORTS[(REPORTS)]
-        QUEUE[(Batch Queue DB)]
+    subgraph DB[(Database)]
+        SHED[shedlock]
+        REQ[batch_requests]
+        DATA[DATA, TAX_RATE]
+        USR[USERS, BIZ_HISTORY]
+        REP[REPORTS]
     end
 
-    %% Flows
-    API -->|1. OCR/대기열 등록/CRUD| Service
-    Service -->|2. 데이터 처리| Entities
-    Service -->|OCR| GVA
+    %% API to Core
+    API -->|1. 서비스 요청| CORE
+    CORE -->|OCR 처리| GVA
     
-    API -->|대기열 등록| QUEUE
+    %% Event-Driven Flow
+    CORE -->|2. 대기열 등록| REQ
+    BATCH -.->|Polling| REQ
+    BATCH -->|3. 데이터 적재| DATA
     
-    Scheduler -->|1. Polling| QUEUE
-    Scheduler -->|2. Swap/Bulk| Writers
-    Writers -->|3. 적재| DATA
-    
-    Cron -->|1. NTS 상태 동기화| NTS
-    NTS -->|API 응답| Cron
-    Cron -->|2. 업데이트| Entities
-    
-    Entities -->|저장/조회| DATA
-    Entities -->|리포트| REPORTS
+    %% Time-Driven Flow
+    BATCH -->|1. 락 획득| SHED
+    SHED -->|2. 상태 동기화| NTS
+    NTS -->|저장| USR
+    SHED -->|리포트 생성| REP
 ```
 
 <br/>
 
 ---
 
-## 4. System Architecture
-![System Architecture](https://img.shields.io/badge/Architecture-Layered-blue)
-
-```mermaid
-graph TD
-    subgraph "External Integration"
-        NTS[국세청 홈택스 API]
-        CARD[카드사 파일 시스템]
-    end
-
-    subgraph "BizReport System (Multi-Module)"
-        direction TB
-        subgraph ":api Module"
-            Controller[REST API Controllers]
-            ApiService[Services & Tax Engine]
-        end
-        subgraph ":batch Module"
-            Scheduler[Batch Scheduler + ShedLock]
-            Reaper[Zombie Reaper]
-            ItemReader[FlatFile/Repository Readers]
-            ItemWriter[JDBC Bulk & Temp Writers]
-        end
-        subgraph ":core Module"
-            Entities[JPA Entities]
-            Repos[JPA / JDBC Repositories]
-        end
-        
-        Controller --> ApiService
-        ApiService --> Entities
-        Scheduler --> ItemReader
-        ItemReader --> ItemWriter
-        ItemWriter --> Repos
-    end
-
-    subgraph "Database (MySQL)"
-        Queue[(Batch Requests)]
-        DATA[(DATA Table)]
-        REPORT[(REPORTS Table)]
-    end
-
-    Controller -- "비동기 Job 등록" --> Queue
-    Scheduler -- "Polling & Lock" --> Queue
-    NTS --> Scheduler
-    CARD --> Controller
-    ItemWriter -- "Bulk Upsert" --> REPORT
-    ItemWriter -- "Zero-Downtime Swap" --> DATA
-```
-
-<br/>
-
----
-
-## 5. Batch Architecture
-### 5.1. Event-Driven vs Time-Driven 스케줄링 분리
+## 4. Batch Architecture
+### 4.1. Event-Driven vs Time-Driven 스케줄링 분리
 ```mermaid
 graph LR
     A[배치 요청/스케줄러] --> B{대기열/Ready}
@@ -162,7 +89,7 @@ graph LR
 - Time-Driven (예약형 배치): 지난 세율 데이터 삭제, 사업자 상태 업데이트 및 폐업 변경, 신고마감기한 지난 데이터 마감, 월별 및 누적 리포트 생성
 - Event-Driven (요청형 비동기 배치): 카드내역 파일 업로드, 세율 파일 업로드
 
-### 5.2. 장애 복구 및 무중단 파이프라인
+### 4.2. 장애 복구 및 무중단 파이프라인
 - 좀비 리퍼(Zombie Reaper): 서버 크래시로 멈춘 PROCESSING 배치를 감지하여 READY 롤백
 - 무중단 스왑(Zero-Downtime Swap): 동적 임시 테이블을 활용하여 원본 데이터 삭제와 새 데이터 삽입을 트랜잭션 내에서 처리
 
@@ -170,17 +97,17 @@ graph LR
 
 ---
 
-## 6. Business Logic
-### 6.1. 단일 데이터 원천
+## 5. Business Logic
+### 5.1. 단일 데이터 원천
 - 세금 종류(부가세, 소득세)별로 데이터를 중복 적재하지 않고, 동일한 DATA 엔티티를 공유
 - 인터페이스를 통한 전략 패턴을 적용하여 같은 데이터를 읽어 서로 다른 산출 로직(과세유형, 신고타입)을 적용
 
-### 6.2. 멱등성 보장 및 리포트 마감 시스템
+### 5.2. 멱등성 보장 및 리포트 마감 시스템
 - 산출된 세금 리포트는 ON DUPLICATE KEY UPDATE를 활용한 Bulk Upsert로 DB에 적재되어, 배치를 여러 번 재실행해도 멱등성(Idempotency)이 보장
 - 리포트는 법정 마감 기한 전까지는 지속적으로 재계산 및 업데이트가 가능하며, 기한이 지난 후에는 수정이 불가능하도록 상태를 잠금(Lock) 처리
 - 복잡한 세금 계산 근거는 정규화로 인한 조인(Join) 성능 저하를 막기 위해 JSON 컬럼(tax_calc)으로 직렬화하여 저장
 
-### 6.3. 선분 이력을 통한 상태 관리 (SCD Type 2)
+### 5.3. 선분 이력을 통한 상태 관리 (SCD Type 2)
 - 사업자의 과세유형(일반/간이) 또는 영업상태가 변경될 경우, 기존 레코드를 UPDATE하지 않고 BIZ_HISTORY 테이블에 새로운 이력을 INSERT
 - 기존 이력의 tax_type_end_dt를 닫아주고 새로운 이력을 9999-12-31로 활성화하는 SCD(Slowly Changing Dimension) Type 2 방식을 적용하여, 과거 특정 시점의 과세유형과 세율을 정확히 추적
 
@@ -189,7 +116,7 @@ graph LR
 
 ---
 
-## 7. Out of Scope (구현 제외 범위)
+## 6. Out of Scope (구현 제외 범위)
 - **면세사업자 대상 로직 제외:** 부가세 과세사업자(일반/간이)의 세금 예측 파이프라인에 개발 역량을 집중하여 도메인 복잡도를 낮춤
 - **상세 세액 공제/감면 특례 적용 제외:** 코어 비즈니스 로직(표준 세액 계산 및 대용량 배치 처리) 검증에 집중하기 위해 잉여 복잡성을 배제
 - **공인인증서 기반 스크래핑 제외:** 실제 외부 시스템(홈택스)의 불안정성 및 인프라 종속성을 탈피하기 위해 Mock 데이터 제너레이터(DataService.generate)로 대체 
@@ -198,8 +125,8 @@ graph LR
 
 ---
 
-## 8. Troubleshooting
-### 8.1. 대용량 카드 내역 업로드 성능 및 안정성 확보
+## 7. Troubleshooting
+### 7.1. 대용량 카드 내역 업로드 성능 및 안정성 확보
 사용자가 동일한 기간의 같은 카드 내역을 재업로드할 때 발생하는 데이터 중복 문제를 해결하는 과정에서, 시스템 안정성과 데이터 무결성을 보장하기 위해 아키텍처를 3단계에 걸쳐 고도화했습니다.
 
 - Phase 1. DB 유니크 키 제약 조건 (도입 보류)
@@ -216,13 +143,13 @@ graph LR
     3. 단일 트랜잭션 내에서 원본 테이블과 안전하게 swap 하여 원자성을 보장
   - 성과: 업로드 도중 어떤 장애가 발생하더라도 원본 DATA 테이블은 전혀 타격을 받지 않으며, 사용자는 덮어쓰기 작업 중에도 기존 데이터로 안전하게 세금 리포트를 조회할 수 있는 무중단 환경을 구축
 
-### 8.2. 
+### 7.2. 
 
 <br/>
 
 ---
 
-## 9. API Documentation
+## 8. API Documentation
 | 분류 | 기능               | Method | URL | 설명                       |
 | :--- |:-----------------| :--- | :--- |:-------------------------|
 | Business | 사업자 등록           | POST | /api/v1/business | 신규 사업자 등록                |
@@ -252,7 +179,7 @@ graph LR
 
 ---
 
-## 10. Testing
+## 9. Testing
 - 단위 테스트: 각 모듈별 도메인 로직을 JUnit 5와 Mockito로 검증
 - 배치 통합 테스트: H2/MySQL 환경에서 대량 데이터 적재 시 COMPLETED 상태 및 멱등성 검증
 - 부하 테스트: 50,000건 이상의 더미 데이터 환경에서 쿼리 최적화 및 API 응답 속도 확인
