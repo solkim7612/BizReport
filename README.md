@@ -51,25 +51,26 @@ graph TD
     subgraph DB[Database]
         SHED[shedlock]
         REQ[batch_requests]
-        DATA[DATA, TAX_RATE]
+        DATA[DATA, TAX_RATE, REPORTS]
         USR[USERS, BIZ_HISTORY]
-        REP[REPORTS]
     end
 
-    %% API to Core
-    API -->|1. 서비스 요청| CORE
-    CORE -->|OCR 처리| GVA
+    %% API 모듈 흐름
+    API --> CORE
     
-    %% Event-Driven Flow
-    CORE -->|2. 대기열 등록| REQ
+    %% Core 모듈 흐름
+    CORE -->|OCR| GVA
+    CORE --> NTS
+    CORE -->|배치 대기열 등록| REQ
+    CORE --> DATA
+    CORE --> USR
+    
+    %% Batch 모듈 흐름
     BATCH -.->|Polling| REQ
-    BATCH -->|3. 데이터 적재| DATA
-    
-    %% Time-Driven Flow
-    BATCH -->|1. 락 획득| SHED
-    SHED -->|2. 상태 동기화| NTS
-    NTS -->|저장| USR
-    SHED -->|리포트 생성| REP
+    BATCH -->|락 획득| SHED
+    SHED -->|상태 동기화| NTS
+    NTS --> USR
+    SHED --> DATA
 ```
 
 <br/>
