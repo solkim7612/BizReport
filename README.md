@@ -48,7 +48,7 @@ graph TD
         BATCH["batch Module<br/>Time/Event-Driven Batch"]
     end
 
-    subgraph DB[(Database)]
+    subgraph DB[Database]
         SHED[shedlock]
         REQ[batch_requests]
         DATA[DATA, TAX_RATE]
