@@ -206,6 +206,13 @@ erDiagram
 ---
 
 ## 7. API Documentation
+```mermaid
+BizReport/
+└── docs/               
+    └── postman/
+        └── BizReport_API_Collection.json
+```
+
 | 분류 | 기능               | Method | URL | 설명                       |
 | :--- |:-----------------| :--- | :--- |:-------------------------|
 | Business | 사업자 등록           | POST | /api/v1/business | 신규 사업자 등록                |
