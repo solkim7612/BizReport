@@ -36,47 +36,46 @@
 
 ```mermaid
 graph TD
-    %% 레이어별 배치
-    subgraph EXT [External Integration]
+    subgraph EXT ["<b style='font-size:18px;'>External Integration</b>"]
         NTS[NTS Status API]
         GVA[Google Vision API]
     end
 
-    subgraph API_L [api Module]
-        API[REST API Controllers]
+    subgraph API_L ["<b style='font-size:18px;'>api Module</b>"]
+        API[Controller]
     end
 
-    subgraph CORE_L [core Module]
+    subgraph CORE_L ["<b style='font-size:18px;'>core Module</b>"]
         CORE[Service]
     end
 
-    subgraph BATCH_L [batch Module]
-        BATCH[Time/Event-Driven Batch]
+    subgraph BATCH_L ["<b style='font-size:18px;'>batch Module</b>"]
+        BATCH[Batch]
     end
 
-    subgraph DB [Database]
+    subgraph DB ["<b style='font-size:18px;'>Database</b>"]
         REQ[batch_requests]
         SHED[shedlock]
         DATA[DATA, TAX_RATE, REPORTS]
         USR[USERS, BIZ_HISTORY]
     end
 
-    %% Api 모듈의 흐름
+    %% API 상세 흐름
     API --> CORE
     
-    %% Core 모듈의 흐름
-    CORE -->|OCR| GVA
+    %% CORE 상세 흐름
+    CORE --> GVA
     CORE --> NTS
-    CORE -->|대기열 등록| REQ
+    NTS --> USR
+    CORE -->|0. 대기열 등록| REQ
     CORE --> DATA
     CORE --> USR
     
-    %% Batch 모듈의 흐름
-    BATCH -.->|Polling| REQ
-    BATCH -.->|락 획득| SHED
-    SHED --> NTS
-    NTS --> USR
-    SHED --> DATA
+    %% Batch 상세 흐름
+    BATCH -.->|1. 대기열 Polling| REQ
+    BATCH -->|2. 락 획득| SHED
+    BATCH -->|3. 외부 API 연동| NTS
+    BATCH -->|4. 데이터 적재| DATA
     
     class NTS,GVA ext;
     class API,CORE,BATCH mod;
@@ -88,16 +87,7 @@ graph TD
 ---
 
 ## 4. Batch Architecture
-### 4.1. Event-Driven vs Time-Driven 스케줄링 분리
-```mermaid
-graph LR
-    A[배치 요청/스케줄러] --> B{대기열/Ready}
-    B --> C[1. 임시 테이블 생성]
-    C --> D[2. 데이터 파싱 및 적재]
-    D --> E[3. 데이터 Swap]
-    E --> F[4. 임시 테이블 삭제/완료]
-```
-// todo: mermaid에 아래 내용 반영
+### 4.1. Batch Workflow
 - Time-Driven (예약형 배치): 지난 세율 데이터 삭제, 사업자 상태 업데이트 및 폐업 변경, 신고마감기한 지난 데이터 마감, 월별 및 누적 리포트 생성
 - Event-Driven (요청형 비동기 배치): 카드내역 파일 업로드, 세율 파일 업로드
 
