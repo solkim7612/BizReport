@@ -206,7 +206,7 @@ erDiagram
 ---
 
 ## 7. API Documentation
-```mermaid
+```text
 BizReport/
 └── docs/               
     └── postman/
