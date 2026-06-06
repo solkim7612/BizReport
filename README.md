@@ -23,8 +23,8 @@
 - **Language:** Java 17
 - **Framework:** Spring Boot 3.2.4
 - **Architecture**: Gradle Multi-Module (:api, :batch, :core)
-- **Data Access:** Spring Data JPA, Querydsl 5.0, Spring JDBC (Bulk)
-- **Batch Processing:** Spring Batch 5, ShedLock
+- **Data Access:** Spring Data JPA, Querydsl 5.0, Spring JDBC (Bulk Upsert)
+- **Batch Processing:** Spring Batch 5, ShedLock (Distributed Lock)
 - **Database:** MySQL 8.0
 - **Infra:** Docker
 
