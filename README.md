@@ -4,6 +4,10 @@
 > <br/>
 > 실무 경험을 바탕으로 기획/개발한 백엔드 시스템입니다.
 
+<br>
+** 세무 도메인 지식이 궁금하시다면 아래 링크를 참고해 주세요. ** <br>
+[👉 BizReport 도메인 가이드 바로가기 (Wiki)](https://github.com/solkim7612/BizReport/wiki/Domain-Knowledge)
+
 <br/>
 
 ---
