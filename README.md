@@ -39,24 +39,24 @@
 
 ```mermaid
 graph TD
-    subgraph EXT ["<b style='font-size:18px;'>External Integration</b>"]
+    subgraph EXT [External Integration]
         NTS[NTS Status API]
         GVA[Google Vision API]
     end
 
-    subgraph API_L ["<b style='font-size:18px;'>api Module</b>"]
+    subgraph API_L [api Module]
         API[Controller]
     end
 
-    subgraph CORE_L ["<b style='font-size:18px;'>core Module</b>"]
+    subgraph CORE_L [core Module]
         CORE[Service]
     end
 
-    subgraph BATCH_L ["<b style='font-size:18px;'>batch Module</b>"]
+    subgraph BATCH_L [batch Module]
         BATCH[Batch]
     end
 
-    subgraph DB ["<b style='font-size:18px;'>Database</b>"]
+    subgraph DB [Database]
         REQ[batch_requests]
         SHED[shedlock]
         DATA[DATA, TAX_RATE, REPORTS]
