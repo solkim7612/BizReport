@@ -3,6 +3,8 @@ package com.bizreport.core.dto.data;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataMethod;
 import com.bizreport.core.entity.data.DataType;
+import com.bizreport.core.entity.report.ReportType;
+import com.bizreport.core.entity.report.Reports;
 import com.bizreport.core.entity.user.Users;
 import lombok.Getter;
 import lombok.Setter;
@@ -56,10 +58,16 @@ public class AutoDataRequest {
 
         LocalDate transDt = LocalDate.ofEpochDay(randomDay);
 
+        LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, YearMonth.from(transDt));
+        boolean ignoreVat = LocalDate.now().isAfter(vatDeadline);
+
         long randomNetValue = (random.nextInt(100) + 1) * 10000L;
         BigDecimal netValue = BigDecimal.valueOf(randomNetValue);
         BigDecimal vatValue = netValue.multiply(BigDecimal.valueOf(0.1));
-        BigDecimal totalPrice = netValue.add(vatValue);
+
+        BigDecimal finalNet = ignoreVat ? netValue.add(vatValue) : netValue;
+        BigDecimal finalVat = ignoreVat ? BigDecimal.ZERO : vatValue;
+        BigDecimal totalPrice = finalNet.add(finalVat);
 
         return Data.builder()
                 .user(user)
@@ -70,8 +78,8 @@ public class AutoDataRequest {
                 .cardNum(cardNum)
                 .vendorId(vendorId)
                 .transDt(transDt)
-                .netValue(netValue)
-                .vatValue(vatValue)
+                .netValue(finalNet)
+                .vatValue(finalVat)
                 .totalPrice(totalPrice)
                 .build();
     }

@@ -25,7 +25,9 @@ public class ManualDataRequest {
         return total.subtract(vat);
     }
 
-    public Data toEntity(Users user) {
+    public Data toEntity(Users user, boolean ignoreVat) {
+        BigDecimal parseVat = ignoreVat ? BigDecimal.ZERO : vatValue;
+
         return Data.builder()
                 .user(user)
                 .type(DataType.PURCHASE)
@@ -36,7 +38,7 @@ public class ManualDataRequest {
                 .vendorId(vendorId)
                 .transDt(transDt)
                 .netValue(getNetValue())
-                .vatValue(vatValue)
+                .vatValue(parseVat)
                 .totalPrice(totalPrice)
                 .build();
     }

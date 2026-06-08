@@ -68,15 +68,18 @@ public class DataService {
 
         YearMonth targetMon = YearMonth.from(request.getTransDt());
         LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, targetMon);
+        LocalDate citDeadline = Reports.getDeadline(ReportType.CIT, targetMon);
 
-        if (LocalDate.now().isAfter(vatDeadline)) {
+        if (LocalDate.now().isAfter(citDeadline)) {
             throw new CustomException(ErrorCode.REPORT_ALREADY_CLOSED);
         }
 
-        Data data = request.toEntity(user);
+        boolean ignoreVat = LocalDate.now().isAfter(vatDeadline);
+
+        Data data = request.toEntity(user, ignoreVat);
         dataRepo.save(data);
 
-        log.info("[SERVICE] 수기 세무 데이터 1건 추가 완료: B_NO {}", user.getId());
+        log.info("[SERVICE] 수기 세무 데이터 1건 추가 완료 (ignoreVat={}): B_NO {}", ignoreVat, user.getId());
     }
 
     public ManualDataRequest extractReceipt(MultipartFile file) {
