@@ -41,7 +41,7 @@
 ```mermaid
 graph TD
     subgraph FE [React Frontend]
-        UI[Dashboard / Admin / Inquiry / Scraping]
+        UI[Business / Data / Report / Admin]
     end
 
     subgraph EXT [External Integration]
@@ -69,27 +69,22 @@ graph TD
     end
 
     %% Frontend & API 흐름
-    UI <-->|Axios / REST API| API
+    UI <--> API
     API --> CORE
     
     %% CORE 상세 흐름
     CORE --> GVA
     CORE --> NTS
     NTS --> USR
-    CORE -->|"대기열 등록 Producer"| REQ
+    CORE -->|"대기열 등록"| REQ
     CORE --> DATA
     CORE --> USR
     
     %% Batch 상세 흐름
-    BCON -.->|"READY 대기열 Polling Consumer"| REQ
+    BCON -.->|"READY 대기열 Polling"| REQ
     BCON -->|"분산 락 획득"| SHED
     BCON -->|"순차적 JobLauncher 실행"| DATA
-    BCON -->|"좀비 큐 복구 reapQueue"| REQ
-    
-    classDef fe fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
-    classDef ext fill:#fef3c7,stroke:#d97706,stroke-width:2px;
-    classDef mod fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px;
-    classDef db fill:#d1fae5,stroke:#059669,stroke-width:2px;
+    BCON -->|"좀비 큐 복구"| REQ
 
     class UI fe;
     class NTS,GVA ext;
