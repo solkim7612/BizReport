@@ -4,7 +4,7 @@
 > <br/>
 > 실무 경험을 바탕으로 기획/개발한 Full-Stack 시스템입니다.
 
-<br/>cd
+<br/>
 
 [BizReport 세무 도메인 가이드 보러가기](https://github.com/solkim7612/BizReport/wiki/Domain-Knowledge)
 <br/>
