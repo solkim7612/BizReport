@@ -13,6 +13,9 @@ spring:
       hibernate:
         format_sql: true
         default_batch_fetch_size: 1000
+        jdbc:
+          order_inserts: true
+          order_updates: true
 
   flyway:
     enabled: true
@@ -30,3 +33,7 @@ api:
 #    key: ${NTS_STATUS_KEY}
   google:
     key: ${GOOGLE_VISION_KEY}
+
+chunk:
+  size:
+    business: 500

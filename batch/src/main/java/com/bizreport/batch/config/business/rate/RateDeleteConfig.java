@@ -7,6 +7,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,28 +36,32 @@ public class RateDeleteConfig {
     public Step rateDeleteStep() {
         return new StepBuilder("rateDeleteStep", job)
                 .tasklet((contribution, chunkContext) -> {
+                    ExecutionContext stepContext = chunkContext.getStepContext().getStepExecution().getExecutionContext();
+                    int totalDeleted = stepContext.getInt("totalDeleted", 0);
 
                     int targetYear = LocalDate.now().getYear() - 5;
                     String targetYearStr = String.valueOf(targetYear);
-                    log.info("[BATCH] 세율 데이터 정리 시작: {}년 이하 데이터 안전 삭제", targetYearStr);
 
-                    int deletedCount;
-                    int totalDeleted = 0;
-                    do {
-                        deletedCount = template.update(
-                                "DELETE FROM TAX_RATE WHERE target_year <= ? LIMIT 1000",
-                                targetYearStr
-                        );
-                        totalDeleted += deletedCount;
+                    if (totalDeleted == 0) {
+                        log.info("[BATCH] 세율 데이터 정리 시작: {}년 이하 데이터 삭제", targetYearStr);
+                    }
 
-                        if (deletedCount > 0) {
-                            Thread.sleep(100);
-                        }
+                    int deletedCount = template.update(
+                            "DELETE FROM TAX_RATE WHERE target_year <= ? LIMIT 1000",
+                            targetYearStr
+                    );
 
-                    } while (deletedCount > 0);
+                    totalDeleted += deletedCount;
+                    stepContext.putInt("totalDeleted", totalDeleted);
+
+                    if (deletedCount > 0) {
+                        Thread.sleep(100);
+                        return RepeatStatus.CONTINUABLE;
+                    }
 
                     log.info("[BATCH] 세율 데이터 정리 완료: 총 {}건 삭제", totalDeleted);
                     return RepeatStatus.FINISHED;
+
                 }, manager)
                 .build();
     }

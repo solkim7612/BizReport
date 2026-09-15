@@ -28,8 +28,8 @@ public class TaxRate {
     private BigDecimal expRt;
 
     @Builder
-    public TaxRate(RateId id, String indNm, BigDecimal vatRt, BigDecimal expRt) {
-        this.id = id;
+    public TaxRate(String indCd, String year, String indNm, BigDecimal vatRt, BigDecimal expRt) {
+        this.id = new RateId(indCd, year);
         this.indNm = indNm;
         this.vatRt = vatRt;
         this.expRt = expRt;

@@ -1,6 +1,6 @@
 package com.bizreport.batch.config.data;
 
-import com.bizreport.core.dto.data.CardFileRequest;
+import com.bizreport.core.dto.batch.CardFileRequest;
 import com.bizreport.core.entity.batch.BatchRequest;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.user.Users;
@@ -34,7 +34,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
-import java.sql.Date;
+import java.time.LocalDate;
 import java.util.Map;
 
 @Slf4j
@@ -65,8 +65,11 @@ public class CardUploadConfig {
     public Step createTempTableStep() {
         return new StepBuilder("createTempTableStep", job)
                 .tasklet((contribution, chunkContext) -> {
-                    String id = (String) chunkContext.getStepContext().getJobParameters().get("id");
-                    String tempTableName = "TEMP_DATA_" + id;
+                    Map<String, Object> params = chunkContext.getStepContext().getJobParameters();
+                    String id = (String) params.get("id");
+                    String requestId = String.valueOf(params.get("requestId"));
+
+                    String tempTableName = "TEMP_DATA_" + id + "_" + requestId;
 
                     template.execute("CREATE TABLE IF NOT EXISTS " + tempTableName + " LIKE DATA");
                     template.execute("TRUNCATE TABLE " + tempTableName);
@@ -83,8 +86,8 @@ public class CardUploadConfig {
         return new StepBuilder("cardUploadStep", job)
                 .<CardFileRequest, Data>chunk(chunk, manager)
                 .reader(cardFileReader(null, null))
-                .processor(cardFileProcessor(null, null, null))
-                .writer(tempWriter(null))
+                .processor(cardFileProcessor(null, null, null, null, null))
+                .writer(tempWriter(null, null))
                 .faultTolerant()
                 .skip(FlatFileParseException.class)
                 .skip(IllegalArgumentException.class)
@@ -125,14 +128,24 @@ public class CardUploadConfig {
     public ItemProcessor<CardFileRequest, Data> cardFileProcessor(
             @Value("#{jobParameters['id']}") String id,
             @Value("#{jobParameters['cardNum']}") String cardNum,
-            @Value("#{jobParameters['ignoreVat']}") String ignoreVatStr) {
+            @Value("#{jobParameters['ignoreVat']}") String ignoreVatStr,
+            @Value("#{jobParameters['startDt']}") String startDtStr,
+            @Value("#{jobParameters['endDt']}") String endDtStr) {
 
         Users user = userRepo.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         boolean ignoreVat = Boolean.parseBoolean(ignoreVatStr);
+        LocalDate startDt = LocalDate.parse(startDtStr);
+        LocalDate endDt = LocalDate.parse(endDtStr);
 
         return request -> {
+            LocalDate transDt = LocalDate.parse(request.getTransDt());
+            if (transDt.isBefore(startDt) || transDt.isAfter(endDt)) {
+                log.warn("[BATCH] 범위 초과 데이터 무시: {}", transDt);
+                return null;
+            }
+
             request.validPrice();
             return request.toEntity(user, cardNum, ignoreVat);
         };
@@ -140,8 +153,11 @@ public class CardUploadConfig {
 
     @Bean
     @StepScope
-    public JdbcBatchItemWriter<Data> tempWriter(@Value("#{jobParameters['id']}") String id) {
-        String tempTableName = "TEMP_DATA_" + id;
+    public JdbcBatchItemWriter<Data> tempWriter(
+            @Value("#{jobParameters['id']}") String id,
+            @Value("#{jobParameters['requestId']}") Long requestId) {
+
+        String tempTableName = "TEMP_DATA_" + id + "_" + requestId;
 
         String sql = """
                 INSERT INTO %s 
@@ -176,13 +192,14 @@ public class CardUploadConfig {
                     Map<String, Object> params = chunkContext.getStepContext().getJobParameters();
                     String id = (String) params.get("id");
                     String cardNum = (String) params.get("cardNum");
-                    String tempTableName = "TEMP_DATA_" + id;
+                    String requestId = String.valueOf(params.get("requestId"));
 
-                    Map<String, Object> range = template.queryForMap("SELECT MIN(trans_dt) as minDt, MAX(trans_dt) as maxDt FROM " + tempTableName);
-                    Date minDt = (Date) range.get("minDt");
-                    Date maxDt = (Date) range.get("maxDt");
+                    String startDt = (String) params.get("startDt");
+                    String endDt = (String) params.get("endDt");
 
-                    log.info("[BATCH] B_NO {} 의 카드({}) 데이터 기반 Swap 시작: 삭제 범위 {} ~ {}", id, cardNum, minDt, maxDt);
+                    String tempTableName = "TEMP_DATA_" + id + "_" + requestId;
+
+                    log.info("[BATCH] B_NO {} 의 카드({}) 데이터 Swap 시작: 요청 덮어쓰기 범위 {} ~ {}", id, cardNum, startDt, endDt);
 
                     String deleteSql = """
                             DELETE FROM DATA 
@@ -192,7 +209,7 @@ public class CardUploadConfig {
                               AND trans_dt BETWEEN ? AND ?
                             """;
 
-                    int deleted = template.update(deleteSql, id, cardNum, minDt, maxDt);
+                    int deleted = template.update(deleteSql, id, cardNum, startDt, endDt);
                     log.info("[BATCH] B_NO {} 의 삭제된 기존 데이터 건수: {}건", id, deleted);
 
                     String insertSql = """
@@ -214,8 +231,11 @@ public class CardUploadConfig {
     public Step dropTempTableStep() {
         return new StepBuilder("dropTempTableStep", job)
                 .tasklet((contribution, chunkContext) -> {
-                    String id = (String) chunkContext.getStepContext().getJobParameters().get("id");
-                    String tempTableName = "TEMP_DATA_" + id;
+                    Map<String, Object> params = chunkContext.getStepContext().getJobParameters();
+                    String id = (String) params.get("id");
+                    String requestId = String.valueOf(params.get("requestId"));
+
+                    String tempTableName = "TEMP_DATA_" + id + "_" + requestId;
 
                     template.execute("DROP TABLE IF EXISTS " + tempTableName);
 

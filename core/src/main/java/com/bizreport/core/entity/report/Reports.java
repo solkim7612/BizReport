@@ -102,4 +102,9 @@ public class Reports extends BaseEntity {
 
         return end;
     }
+
+    public boolean isClosed() {
+        LocalDate deadline = getDeadline(this.reportType, YearMonth.parse(this.period.split("~")[0]));
+        return LocalDate.now().isAfter(deadline);
+    }
 }

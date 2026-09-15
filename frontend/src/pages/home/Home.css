@@ -1,0 +1,111 @@
+/* 홈 컨테이너 전체 설정 */
+.home-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 100px); /* Navbar 높이 제외 */
+  text-align: center;
+  padding: 2rem;
+}
+
+/* 핵심 메시지 섹션 */
+.hero-content {
+  max-width: 800px;
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1.3;
+  margin-bottom: 3rem;
+}
+
+.highlight {
+  color: #2563eb; /* BizReport 메인 블루 컬러 */
+}
+
+.hero-subtitle {
+  font-size: 1rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+  word-break: keep-all;
+}
+
+/* Call to Action (CTA) 버튼 영역 */
+.hero-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.cta-button {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.cta-button.primary {
+  background-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.cta-button.primary:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-2px);
+}
+
+.cta-button.secondary {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.cta-button.secondary:hover {
+  background-color: #e5e7eb;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================
+   반응형 (태블릿 및 모바일 환경 대응)
+   ========================================== */
+@media screen and (max-width: 768px) {
+  .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.88rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .cta-button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}

@@ -38,8 +38,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleException(Exception e) {
 
         log.error("[UnhandledException] 예상치 못한 서버 오류 발생: ", e);
+        String errorMessage = e.getMessage() != null ? e.getMessage() : ErrorCode.INTERNAL_SERVER_ERROR.getMessage();
+
         return ResponseEntity
                 .status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
-                .body(ErrorResponse.from(ErrorCode.INTERNAL_SERVER_ERROR));
+                .body(ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR.name(), errorMessage));
     }
 }

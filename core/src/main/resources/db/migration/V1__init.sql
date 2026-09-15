@@ -8,11 +8,24 @@ CREATE TABLE IF NOT EXISTS `USERS` (
     `ind_nm` VARCHAR(255) COMMENT '업종명',
     `end_dt` DATE COMMENT '폐업일',
     `b_stt` ENUM('CONTINUED', 'TEMP_CLOSED', 'CLOSED') COMMENT '영업상태',
+    `refresh_count` INT NOT NULL DEFAULT 0 COMMENT '갱신권 잔여횟수',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 2. 세율/경비율 마스터 테이블
+-- 2. 갱신권 사용/충전 이력 테이블 (신규 추가)
+CREATE TABLE IF NOT EXISTS `REFRESH_HISTORY` (
+                                                 `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                                 `b_id` VARCHAR(12) NOT NULL COMMENT '사업자등록번호',
+    `type` VARCHAR(10) NOT NULL COMMENT 'CHARGE 또는 USE',
+    `amount` INT NOT NULL COMMENT '변경 수량',
+    `balance` INT NOT NULL COMMENT '변경 후 잔액',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. 세율/경비율 마스터 테이블
 CREATE TABLE IF NOT EXISTS `TAX_RATE` (
                                           `ind_cd` VARCHAR(10) NOT NULL COMMENT '업종코드',
     `target_year` VARCHAR(4) NOT NULL COMMENT '귀속연도',
@@ -25,7 +38,7 @@ CREATE TABLE IF NOT EXISTS `TAX_RATE` (
     INDEX `idx_tax_rate_year` (`target_year`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 3. 가상 세무 데이터(영수증) 테이블
+-- 4. 가상 세무 데이터(영수증) 테이블
 CREATE TABLE IF NOT EXISTS `DATA` (
                                       `data_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `b_id` VARCHAR(12) NOT NULL COMMENT '사업자등록번호',
@@ -44,7 +57,7 @@ CREATE TABLE IF NOT EXISTS `DATA` (
     FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 4. 세금 리포트 테이블
+-- 5. 세금 리포트 테이블
 CREATE TABLE IF NOT EXISTS `REPORTS` (
                                         `report_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `b_id` VARCHAR(12) NOT NULL COMMENT '사업자등록번호',
@@ -59,23 +72,24 @@ CREATE TABLE IF NOT EXISTS `REPORTS` (
     FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 5. 사업자 유형 이력 테이블
+-- 6. 사업자 유형 이력 테이블
 CREATE TABLE IF NOT EXISTS `BIZ_HISTORY` (
                                `h_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `b_id` VARCHAR(12) NOT NULL COMMENT '사업자등록번호',
     `tax_type` ENUM('GENERAL', 'SIMPLIFIED') NOT NULL COMMENT '부가가치세 신고유형',
     `tax_type_change_dt` DATE COMMENT '과세유형 전환일자',
     `tax_type_end_dt` DATE NOT NULL DEFAULT '9999-12-31' COMMENT '해당 유형 종료일',
-    FOREIGN KEY (`b_id`) REFERENCES `USERS`(`b_id`) ON DELETE CASCADE,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX `idx_history_lookup` (`b_id`, `tax_type_change_dt`, `tax_type_end_dt`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 6. 배치 요청(Batch Request) 대기열 테이블
+-- 7. 배치 요청(Batch Request) 대기열 테이블
 CREATE TABLE IF NOT EXISTS `batch_requests` (
                                                 `request_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                                                 `job_name` VARCHAR(255) NOT NULL COMMENT '실행할 Job 이름',
-    `file_name` VARCHAR(255) NOT NULL COMMENT '파일명',
-    `file_data` LONGTEXT NOT NULL COMMENT '파일데이터',
+    `file_name` VARCHAR(255) COMMENT '파일명',
+    `file_data` LONGTEXT COMMENT '파일데이터',
     `job_parameters` TEXT COMMENT 'Job 파라미터 (JSON)',
     `status` ENUM('READY', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'READY' COMMENT '상태',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,

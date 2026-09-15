@@ -1,77 +1,159 @@
 package com.bizreport.batch.scheduler;
 
+import com.bizreport.core.dto.batch.BatchStatusResponse;
+import com.bizreport.core.entity.batch.BatchRequest;
+import com.bizreport.core.entity.batch.BatchStatus;
+import com.bizreport.core.entity.exception.CustomException;
+import com.bizreport.core.entity.exception.ErrorCode;
+import com.bizreport.core.repository.batch.BatchRepository;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import lombok.RequiredArgsConstructor;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.JobParametersBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BatchService {
     private final JobLauncher jobLauncher;
+    private final BatchRepository batchRepo;
+
+    private final Job cardUploadJob;
     private final Job statusUpdateJob;
     private final Job statusClosedJob;
-    private final Job monReportJob;
-    private final Job accReportJob;
+    private final Job reportCreateJob;
     private final Job rateDeleteJob;
     private final Job dataClosedJob;
 
-    public void runUpdateStatus() {
+    @Transactional
+    public void register(String jobName, String jobParameters) {
+        BatchRequest request = BatchRequest.builder()
+                .jobName(jobName)
+                .jobParameters(jobParameters)
+                .status(BatchStatus.READY)
+                .build();
 
-        log.info("[BATCH] 분기별 국세청 상태 전체 동기화");
-        executeJob(statusUpdateJob);
+        batchRepo.saveAndFlush(request);
+        log.info("[BATCH] {} 작업 등록", jobName);
     }
 
-    public void runClosedStatus() {
+    public void execute() {
+        List<BatchRequest> readyRequests = batchRepo.findByStatusOrderByCreatedAtAsc(BatchStatus.READY);
 
-        log.info("[BATCH] 폐업일 경과 사업자 상태 자동 전환");
-        executeJob(statusClosedJob);
+        if (readyRequests.isEmpty()) return;
+
+        log.info("[BATCH] 대기 중인 작업 처리 시작: {}건", readyRequests.size());
+
+        for (BatchRequest request : readyRequests) {
+            updateStatusToProcessing(request.getId());
+
+            try {
+                Job targetJob = resolve(request.getJobName());
+
+                JobParametersBuilder builder = new JobParametersBuilder()
+                        .addLong("time", System.nanoTime())
+                        .addLong("requestId", request.getId());
+
+                if (request.getJobParameters() != null && !request.getJobParameters().isBlank()) {
+                    Map<String, String> paramMap = new Gson().fromJson(
+                            request.getJobParameters(),
+                            new TypeToken<Map<String, String>>() {}.getType()
+                    );
+                    paramMap.forEach(builder::addString);
+                }
+
+                JobExecution execution = jobLauncher.run(targetJob, builder.toJobParameters());
+
+                update(request.getId(), execution.getStatus().isUnsuccessful());
+
+            } catch (Exception e) {
+                log.error("[ERROR] BATCH ID: {} [{}]", request.getId(), e.getMessage());
+                update(request.getId(), true);
+            }
+        }
     }
 
-    public void runReportMonthly() {
-
-        log.info("[BATCH] 월간 리포트 자동 생성");
-        executeJob(monReportJob);
+    @Transactional
+    public void updateStatusToProcessing(Long requestId) {
+        batchRepo.findById(requestId).ifPresent(req -> {
+            req.processing();
+            batchRepo.saveAndFlush(req);
+        });
     }
 
-    public void runReportAccumulated() {
-
-        log.info("[BATCH] 누적 리포트 자동 생성");
-        executeJob(accReportJob);
+    private Job resolve(String jobName) {
+        return switch (jobName) {
+            case "cardUploadJob" -> cardUploadJob;
+            case "statusUpdateJob" -> statusUpdateJob;
+            case "statusClosedJob" -> statusClosedJob;
+            case "reportCreateJob" -> reportCreateJob;
+            case "rateDeleteJob" -> rateDeleteJob;
+            case "dataClosedJob" -> dataClosedJob;
+            default -> throw new IllegalArgumentException("Unknown job: " + jobName);
+        };
     }
 
-    public void runDeleteRate() {
-
-        log.info("[BATCH] 지난 세율 데이터 정리");
-        executeJob(rateDeleteJob);
+    private void update(Long requestId, boolean isFail) {
+        batchRepo.findById(requestId).ifPresent(req -> {
+            if (isFail) {
+                req.fail();
+                log.error("[ERROR] BATCH ID: {}", requestId);
+            } else {
+                req.complete();
+                log.info("[BATCH] 작업 성공");
+            }
+            batchRepo.save(req);
+        });
     }
 
-    public void runClosedData() {
+    @Transactional
+    public int reapQueue() {
+        LocalDateTime threshold = LocalDateTime.now().minusHours(1);
+        int recoveredCount = batchRepo.recoverZombieRequests(threshold);
 
-        log.info("[BATCH] 신고 마감기한 경과 세무 데이터 잠금");
-        executeJob(dataClosedJob);
+        if (recoveredCount > 0) {
+            log.warn("[BATCH] 서버 다운으로 멈춰있던 좀비 큐를 READY 상태로 롤백 처리: {}건", recoveredCount);
+        }
+        return recoveredCount;
     }
 
     @CacheEvict(value = {"taxRate", "indNm"}, allEntries = true)
-    public void clearRateCache() {
-
+    public void clearCache() {
         log.info("[BATCH] 새로운 세율이 적용되어 메모리의 세율 및 업종명 캐시를 모두 초기화");
     }
 
-    private void executeJob(Job job) {
-        try {
-            JobParameters params = new JobParametersBuilder()
-                    .addLong("time", System.currentTimeMillis())
-                    .toJobParameters();
-            jobLauncher.run(job, params);
+    @Transactional(readOnly = true)
+    public List<BatchStatusResponse> getBatchStatus(String id) {
+        String searchParam = "\"id\":\"" + id + "\"";
 
-        } catch (Exception e) {
-            log.error("[BATCH] 해당 배치 작업 실행 실패: {}", job.getName(), e);
-        }
+        return batchRepo.findCardUploadJobsByUserId(searchParam).stream()
+                .map(BatchStatusResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<BatchStatusResponse> getAllBatchStatus() {
+        return batchRepo.findAll().stream()
+                .map(BatchStatusResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public String getBatchFileData(Long batchId) {
+        BatchRequest req = batchRepo.findById(batchId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+
+        return req.getFileData();
     }
 }

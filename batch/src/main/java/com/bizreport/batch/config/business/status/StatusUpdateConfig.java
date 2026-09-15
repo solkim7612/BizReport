@@ -6,21 +6,21 @@ import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.TaxType;
 import com.bizreport.core.entity.user.Users;
 import com.bizreport.core.config.NTSClient;
-import com.bizreport.core.repository.business.UserRepository;
+import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.data.RepositoryItemReader;
-import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
+import org.springframework.batch.item.database.JpaCursorItemReader;
+import org.springframework.batch.item.database.builder.JpaCursorItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.retry.backoff.FixedBackOffPolicy;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -36,7 +36,7 @@ import java.util.List;
 public class StatusUpdateConfig {
     private final JobRepository job;
     private final PlatformTransactionManager manager;
-    private final UserRepository userRepo;
+    private final EntityManagerFactory emf;
     private final NTSClient client;
     private final JdbcTemplate template;
 
@@ -69,14 +69,14 @@ public class StatusUpdateConfig {
                 .build();
     }
 
-    private RepositoryItemReader<Users> updateUserReader() {
-        return new RepositoryItemReaderBuilder<Users>()
+    @Bean
+    @StepScope
+    public JpaCursorItemReader<Users> updateUserReader() {
+        return new JpaCursorItemReaderBuilder<Users>()
                 .name("updateUserReader")
-                .repository(userRepo)
-                .methodName("findBySttNot")
-                .arguments(Status.CLOSED)
-                .pageSize(chunk)
-                .sorts(Collections.singletonMap("id", Sort.Direction.ASC))
+                .entityManagerFactory(emf)
+                .queryString("SELECT u FROM Users u WHERE u.stt != :status ORDER BY u.id ASC")
+                .parameterValues(Collections.singletonMap("status", Status.CLOSED))
                 .build();
     }
 

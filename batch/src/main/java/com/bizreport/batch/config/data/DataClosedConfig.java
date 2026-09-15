@@ -7,6 +7,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +36,9 @@ public class DataClosedConfig {
     public Step dataClosedStep() {
         return new StepBuilder("dataClosedStep", job)
                 .tasklet((contribution, chunkContext) -> {
+                    ExecutionContext stepContext = chunkContext.getStepContext().getStepExecution().getExecutionContext();
+                    int totalUpdated = stepContext.getInt("totalUpdated", 0);
+
                     LocalDate today = LocalDate.now();
                     LocalDate closedDt = null;
 
@@ -47,30 +51,32 @@ public class DataClosedConfig {
                     }
 
                     if (closedDt == null) {
-                        log.info("[BATCH] 마감 기한이 도래한 데이터가 없습니다.");
+                        if (totalUpdated == 0) {
+                            log.info("[BATCH] 마감 기한이 도래한 세무 데이터가 없습니다.");
+                        }
                         return RepeatStatus.FINISHED;
                     }
 
-                    log.info("[BATCH] 세무 데이터 마감 시작: {} 이전 데이터 수정 불가 처리", closedDt);
+                    if (totalUpdated == 0) {
+                        log.info("[BATCH] 세무 데이터 마감 시작: {} 이전 데이터 수정 불가 처리", closedDt);
+                    }
 
-                    int updatedCount;
-                    int totalUpdated = 0;
-                    do {
-                        String sql = """
-                                UPDATE DATA 
-                                SET is_mod = false, updated_at = CURRENT_TIMESTAMP
-                                WHERE is_mod = true AND trans_dt <= ? 
-                                LIMIT 1000
-                                """;
+                    String sql = """
+                            UPDATE DATA 
+                            SET is_mod = false, updated_at = CURRENT_TIMESTAMP
+                            WHERE is_mod = true AND trans_dt <= ? 
+                            LIMIT 1000
+                            """;
 
-                        updatedCount = template.update(sql, closedDt.toString());
-                        totalUpdated += updatedCount;
+                    int updatedCount = template.update(sql, java.sql.Date.valueOf(closedDt));
 
-                        if (updatedCount > 0) {
-                            Thread.sleep(100);
-                        }
+                    totalUpdated += updatedCount;
+                    stepContext.putInt("totalUpdated", totalUpdated);
 
-                    } while (updatedCount > 0);
+                    if (updatedCount > 0) {
+                        Thread.sleep(100);
+                        return RepeatStatus.CONTINUABLE;
+                    }
 
                     log.info("[BATCH] 세무 데이터 마감 완료: 총 {}건 잠금 처리됨", totalUpdated);
                     return RepeatStatus.FINISHED;

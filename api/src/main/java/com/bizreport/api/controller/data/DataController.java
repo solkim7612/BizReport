@@ -1,6 +1,7 @@
 package com.bizreport.api.controller.data;
 
 import com.bizreport.core.dto.data.*;
+import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.service.data.DataService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
@@ -22,54 +23,61 @@ public class DataController {
     private final DataService service;
 
     @GetMapping("/{id}")
-    public ResponseEntity<List<DataResponse>> getData(
+    public ResponseEntity<DataListResponse> get(
             @PathVariable("id") String id,
             @ModelAttribute DataRequest request) {
 
-        List<DataResponse> response = service.getData(id, request);
+        DataListResponse response = service.get(id, request);
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping
-    public ResponseEntity<String> createData(@RequestBody ManualDataRequest request) {
+    @PostMapping("/{id}")
+    public ResponseEntity<String> create(
+            @PathVariable("id") String id,
+            @RequestBody DataCreateRequest request) {
 
-        service.createData(request);
+        service.create(id, request);
         return ResponseEntity.ok("수기 세무 데이터 1건 추가 완료");
     }
 
-    @PostMapping(value = "/receipt/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ManualDataRequest> extractReceipt(@RequestParam("file") MultipartFile file) {
+    @PostMapping(value = "/extract/text/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DataCreateRequest> extractText(
+            @RequestParam("file") MultipartFile file) {
 
-        ManualDataRequest extractedData = service.extractReceipt(file);
-        return ResponseEntity.ok(extractedData);
+        DataCreateRequest text = service.extractText(file);
+        return ResponseEntity.ok(text);
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<String> updateData(
-            @PathVariable("id") Long id,
+    @PatchMapping("/{id}/{dataId}")
+    public ResponseEntity<String> update(
+            @PathVariable("dataId") Long dataId,
             @RequestBody DataUpdateRequest request) {
 
-        service.updateData(id, request);
+        service.update(dataId, request);
         return ResponseEntity.ok("데이터 금액 수정 완료");
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteData(@PathVariable("id") Long id) {
+    @DeleteMapping("/{id}/{dataId}")
+    public ResponseEntity<String> delete(
+            @PathVariable("dataId") Long dataId) {
 
-        service.deleteData(id);
+        service.delete(dataId);
         return ResponseEntity.ok("데이터 삭제 완료");
     }
 
-    @PostMapping("/generate/mock")
-    public ResponseEntity<String> generate(@RequestBody AutoDataRequest request) {
+    @PostMapping("/generate/mock/{id}")
+    public ResponseEntity<List<DataResponse>> generate(
+            @PathVariable("id") String id,
+            @RequestBody DataGenerateRequest request) {
 
-        service.generate(request);
-        return ResponseEntity.ok("가상 세무 데이터 생성 완료");
+        List<Data> list = service.generate(id, request);
+        List<DataResponse> response = list.stream().map(DataResponse::from).toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/download/format")
     public ResponseEntity<Resource> downloadFormat() throws IOException {
-
         String filePath = "static/format.csv";
         Resource resource = new ClassPathResource(filePath);
 
@@ -79,10 +87,12 @@ public class DataController {
                 .body(resource);
     }
 
-    @PostMapping(value = "/upload/card", consumes = "multipart/form-data")
-    public ResponseEntity<String> uploadCard(@ModelAttribute CardUploadRequest request) {
+    @PostMapping(value = "/upload/card/{id}", consumes = "multipart/form-data")
+    public ResponseEntity<String> uploadCard(
+            @PathVariable("id") String id,
+            @ModelAttribute DataUploadRequest request) {
 
-        service.uploadCard(request);
+        service.uploadCard(id, request);
         return ResponseEntity.ok("특정 카드(" + request.getCardNum() + ") 내역 파일 덮어쓰기 대기열 등록 완료");
     }
 }

@@ -2,28 +2,28 @@ package com.bizreport.batch.config.business.status;
 
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.Users;
-import com.bizreport.core.repository.business.UserRepository;
+import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.data.RepositoryItemReader;
-import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
+import org.springframework.batch.item.database.JpaCursorItemReader;
+import org.springframework.batch.item.database.builder.JpaCursorItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Configuration
@@ -31,7 +31,7 @@ import java.util.List;
 public class StatusClosedConfig {
     private final JobRepository job;
     private final PlatformTransactionManager manager;
-    private final UserRepository userRepo;
+    private final EntityManagerFactory emf;
     private final JdbcTemplate template;
 
     @Value("${batch.chunk.business:500}")
@@ -53,14 +53,14 @@ public class StatusClosedConfig {
                 .build();
     }
 
-    private RepositoryItemReader<Users> closedUserReader() {
-        return new RepositoryItemReaderBuilder<Users>()
+    @Bean
+    @StepScope
+    public JpaCursorItemReader<Users> closedUserReader() {
+        return new JpaCursorItemReaderBuilder<Users>()
                 .name("closedUserReader")
-                .repository(userRepo)
-                .methodName("findUsersToClose")
-                .arguments(LocalDate.now(), Status.CLOSED)
-                .pageSize(chunk)
-                .sorts(Collections.singletonMap("id", Sort.Direction.ASC))
+                .entityManagerFactory(emf)
+                .queryString("SELECT u FROM Users u WHERE u.endDt <= :today AND u.stt != :status ORDER BY u.id ASC")
+                .parameterValues(Map.of("today", LocalDate.now(), "status", Status.CLOSED))
                 .build();
     }
 

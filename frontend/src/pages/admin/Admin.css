@@ -1,0 +1,102 @@
+/* Admin.css */
+.admin-header {
+  margin-bottom: 2rem;
+}
+.admin-header h2 {
+  margin: 0 0 0.5rem 0;
+  color: #111827;
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.admin-card {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #374151;
+}
+
+.admin-desc {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0 0 1rem 0;
+}
+
+.admin-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.admin-card button {
+  height: 42px;
+}
+
+.admin-upload-form {
+  display: flex;
+  gap: 1rem;
+}
+
+.admin-upload-form input[type="file"] {
+  flex: 1;
+  padding: 0.5rem;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.danger-card {
+  border-color: #fecaca;
+  background-color: #fef2f2;
+}
+
+.btn.delete {
+    background-color: #ef4444;
+    color: white;
+    border: none;
+}
+
+.btn.delete:hover {
+  background-color: #dc2626;
+}
+
+.warning-card {
+  border-color: #fde047;
+  background-color: #fefce8;
+}
+
+/* Batch 수동 버튼 그리드 */
+
+.manual-trigger-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.admin-card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.admin-select {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-weight: 600;
+  outline: none;
+}

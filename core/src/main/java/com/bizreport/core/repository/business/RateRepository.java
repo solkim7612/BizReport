@@ -15,10 +15,13 @@ import java.util.Optional;
 public interface RateRepository extends JpaRepository<TaxRate, RateId> {
     List<TaxRate> findByIdIndCdInAndIdYear(List<String> indCd, String targetYear);
 
-    @Cacheable(value = "taxRate", key = "#indCd")
     Optional<TaxRate> findFirstByIdIndCdOrderByIdYearDesc(String indCd);
 
-    @Cacheable(value = "indNm", key = "#indCd")
     @Query("SELECT t.indNm FROM TaxRate t WHERE t.id.indCd = :indCd ORDER BY t.id.year DESC LIMIT 1")
     Optional<String> findIndustryNameByCode(@Param("indCd") String indCd);
+
+    List<TaxRate> findByIndNmContaining(String keyword);
+
+    @Query("SELECT t FROM TaxRate t WHERE t.id.indCd LIKE CONCAT('%', :keyword, '%')")
+    List<TaxRate> findByIndCdContaining(@Param("keyword") String keyword);
 }

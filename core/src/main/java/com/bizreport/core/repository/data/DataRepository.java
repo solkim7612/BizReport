@@ -3,6 +3,7 @@ package com.bizreport.core.repository.data;
 import com.bizreport.core.entity.data.Data;
 import com.bizreport.core.entity.data.DataMethod;
 import com.bizreport.core.entity.data.DataType;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

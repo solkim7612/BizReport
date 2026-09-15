@@ -3,6 +3,7 @@ package com.bizreport.core.entity.batch;
 import com.bizreport.core.entity.global.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -20,11 +21,11 @@ public class BatchRequest extends BaseEntity {
     @Column(name = "job_name", nullable = false)
     private String jobName;
 
-    @Column(name = "file_name", nullable = false)
+    @Column(name = "file_name")
     private String fileName;
 
     @Lob
-    @Column(name = "file_data", columnDefinition = "LONGTEXT", nullable = false)
+    @Column(name = "file_data", columnDefinition = "LONGTEXT")
     private String fileData;
 
     @Column(name = "job_parameters", columnDefinition = "TEXT")
@@ -34,6 +35,16 @@ public class BatchRequest extends BaseEntity {
     @Column(name = "status", nullable = false)
     private BatchStatus status;
 
+    @Builder
+    public BatchRequest(BatchStatus status, String jobParameters, String fileData, String fileName, String jobName, Long id) {
+        this.status = status;
+        this.jobParameters = jobParameters;
+        this.fileData = fileData;
+        this.fileName = fileName;
+        this.jobName = jobName;
+        this.id = id;
+    }
+
     public BatchRequest(String jobName, String fileName, String fileData, String jobParameters) {
         this.jobName = jobName;
         this.fileName = fileName;
@@ -42,7 +53,10 @@ public class BatchRequest extends BaseEntity {
         this.status = BatchStatus.READY;
     }
 
-    public void startProcessing() {
+    public void update(String jobParameters) {
+        this.jobParameters = jobParameters;
+    }
+    public void processing() {
         this.status = BatchStatus.PROCESSING;
     }
 

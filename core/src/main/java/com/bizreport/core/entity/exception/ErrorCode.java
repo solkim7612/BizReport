@@ -12,9 +12,11 @@ public enum ErrorCode {
     // [Business domain] 사업자 및 상태 관련
     // ==========================================
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 사업자입니다."),
+    USER_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 등록된 사업자입니다."),
     INVALID_BUSINESS_NUMBER(HttpStatus.BAD_REQUEST, "유효하지 않은 사업자등록번호 형식입니다."),
     USER_ALREADY_CLOSED(HttpStatus.FORBIDDEN, "폐업된 사업자입니다. 신고 및 데이터 처리가 제한됩니다."),
     MISSING_INDUSTRY_CODE(HttpStatus.BAD_REQUEST, "정확한 세금 계산을 위해 업종코드(indCd) 등록이 필수입니다."),
+    INSUFFICIENT_REFRESH_TICKET(HttpStatus.FORBIDDEN, "갱신권 횟수가 부족합니다. 충전 후 다시 시도해주세요."),
 
     // ==========================================
     // [Data domain] 세무 데이터 관련
@@ -30,7 +32,7 @@ public enum ErrorCode {
     // ==========================================
     INVALID_REPORT_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 리포트 유형(VAT, CIT)입니다."),
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 기간의 리포트가 아직 생성되지 않았습니다. 조회를 위해 먼저 생성을 요청해주세요."),
-    REPORT_ALREADY_CLOSED(HttpStatus.FORBIDDEN, "해당 과세 기간은 이미 마감되었습니다. 추가 신고나 데이터 등록이 불가합니다."),
+    REPORT_ALREADY_CLOSED(HttpStatus.FORBIDDEN, "해당 과세 기간은 이미 마감되었습니다. 리포트 생성 및 수정이 불가합니다."),
     INVALID_REPORT_PERIOD(HttpStatus.BAD_REQUEST, "리포트 조회 기간(시작월, 종료월)이 올바르지 않습니다."),
     INVALID_REPORT_DEADLINE(HttpStatus.BAD_REQUEST, "마감기한이 맞지 않습니다."),
 

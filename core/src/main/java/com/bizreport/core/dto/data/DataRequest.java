@@ -22,4 +22,8 @@ public class DataRequest {
     public YearMonth getEndYearMonth() {
         return YearMonth.parse(endMon);
     }
+
+    public boolean isFilter() {
+        return type != null || method != null;
+    }
 }

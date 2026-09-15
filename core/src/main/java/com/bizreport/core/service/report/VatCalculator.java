@@ -36,7 +36,7 @@ public class VatCalculator implements TaxCalculator {
 
         BigDecimal salesTax = isGeneral
                 ? sumBy(dataList, DataType.SALES, Data::getVatValue)
-                : sales.multiply(vatRt).multiply(new BigDecimal("0.1"));
+                : sales.multiply(vatRt).multiply(new BigDecimal("0.1")).setScale(0, RoundingMode.DOWN);
 
         BigDecimal purchases = isGeneral
                 ? sumBy(dataList, DataType.PURCHASE, Data::getNetValue)
@@ -48,15 +48,14 @@ public class VatCalculator implements TaxCalculator {
 
         BigDecimal purchaseTax = isGeneral
                 ? sumBy(dataList, DataType.PURCHASE, Data::getVatValue)
-                : purchases.multiply(new BigDecimal("0.005"));
+                : purchases.multiply(new BigDecimal("0.005")).setScale(0, RoundingMode.DOWN);
 
-        BigDecimal beforeTax = salesTax.subtract(purchaseTax).max(BigDecimal.ZERO);
+        BigDecimal beforeTax = salesTax.subtract(purchaseTax);
 
         BigDecimal tax = beforeTax.subtract(prepaidTax);
         boolean isRefund = tax.compareTo(BigDecimal.ZERO) < 0;
 
-        BigDecimal pay = isRefund ? BigDecimal.ZERO : tax.setScale(-1, RoundingMode.DOWN);
-        BigDecimal refund = isRefund ? tax.abs().setScale(-1, RoundingMode.DOWN) : BigDecimal.ZERO;
+        BigDecimal pay = tax.abs().setScale(-1, RoundingMode.DOWN);
 
         Map<String, Object> calc = new HashMap<>();
         calc.put("isGeneral", isGeneral);
@@ -68,7 +67,7 @@ public class VatCalculator implements TaxCalculator {
         calc.put("beforeTax", beforeTax);
         calc.put("prepaidTax", prepaidTax);
         calc.put("isRefund", isRefund);
-        calc.put("refund", refund);
+        calc.put("pay", pay);
 
         return new Result(pay, calc);
     }

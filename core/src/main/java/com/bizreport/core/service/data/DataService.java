@@ -2,8 +2,8 @@ package com.bizreport.core.service.data;
 
 import com.bizreport.core.dto.data.*;
 import com.bizreport.core.entity.batch.BatchRequest;
+import com.bizreport.core.entity.batch.BatchStatus;
 import com.bizreport.core.entity.data.Data;
-import com.bizreport.core.entity.data.DataMethod;
 import com.bizreport.core.entity.report.ReportType;
 import com.bizreport.core.entity.report.Reports;
 import com.bizreport.core.entity.user.Users;
@@ -46,25 +46,29 @@ public class DataService {
     private final ImageAnnotatorClient client;
 
     @Transactional(readOnly = true)
-    public List<DataResponse> getData(String id, DataRequest request) {
+    public DataListResponse get(String id, DataRequest request) {
         LocalDate startDt = request.getStartYearMonth().atDay(1);
         LocalDate endDt = request.getEndYearMonth().atEndOfMonth();
 
-        return dataRepo.findFilteredData(
-                        id,
-                        startDt,
-                        endDt,
-                        request.getType(),
-                        request.getMethod()
-                ).stream()
-                .map(DataResponse::from)
-                .toList();
+        List<Data> list = dataRepo.findFilteredData(id, startDt, endDt, request.getType(), request.getMethod());
+        List<DataResponse> response = list.stream().map(DataResponse::from).toList();
+
+        DataSummary summary = null;
+        if (request.isFilter()) {
+            summary = DataSummary.builder()
+                    .count(list.size())
+                    .totalNetValue(list.stream().map(Data::getNetValue).reduce(BigDecimal.ZERO, BigDecimal::add))
+                    .totalVatValue(list.stream().map(Data::getVatValue).reduce(BigDecimal.ZERO, BigDecimal::add))
+                    .totalPrice(list.stream().map(Data::getTotalPrice).reduce(BigDecimal.ZERO, BigDecimal::add))
+                    .build();
+        }
+
+        return DataListResponse.builder().dataList(response).summary(summary).build();
     }
 
     @Transactional
-    public void createData(ManualDataRequest request) {
-        Users user = userRepo.findById(request.getId())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    public void create(String id, DataCreateRequest request) {
+        Users user = getUser(id);
 
         YearMonth targetMon = YearMonth.from(request.getTransDt());
         LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, targetMon);
@@ -79,10 +83,10 @@ public class DataService {
         Data data = request.toEntity(user, ignoreVat);
         dataRepo.save(data);
 
-        log.info("[SERVICE] 수기 세무 데이터 1건 추가 완료 (ignoreVat={}): B_NO {}", ignoreVat, user.getId());
+        log.info("[DATA] 수기 세무 데이터 1건 추가 완료 (ignoreVat={}): B_NO {}", ignoreVat, user.getId());
     }
 
-    public ManualDataRequest extractReceipt(MultipartFile file) {
+    public DataCreateRequest extractText(MultipartFile file) {
         validate(file, ".jpg", ".jpeg", ".png");
 
         try {
@@ -102,18 +106,18 @@ public class DataService {
             }
 
             String text = res.getFullTextAnnotation().getText();
-            log.info("[SERVICE] 추출된 영수증 텍스트: \n{}", text);
+            log.info("[DATA] 추출된 영수증 텍스트: \n{}", text);
 
             return parseText(text);
 
         } catch (Exception e) {
-            log.error("[SERVICE] OCR 처리 중 오류 발생", e);
+            log.error("[DATA] OCR 처리 중 오류 발생", e);
             throw new CustomException(ErrorCode.OCR_EXTRACTION_FAILED);
         }
     }
 
-    private ManualDataRequest parseText(String text) {
-        ManualDataRequest request = new ManualDataRequest();
+    private DataCreateRequest parseText(String text) {
+        DataCreateRequest request = new DataCreateRequest();
 
         String vendorId = "0000000000";
 
@@ -167,24 +171,23 @@ public class DataService {
     }
 
     @Transactional
-    public void updateData(Long id, DataUpdateRequest request) {
-        Data data = dataRepo.findById(id)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+    public void update(Long id, DataUpdateRequest request) {
+        Data data = getData(id);
 
         if (!data.isMod()) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         data.update(request.netValue(), request.vatValue());
-        log.info("[SERVICE] 데이터 금액 수정 완료: dataId={}", id);
+        log.info("[DATA] 데이터 금액 수정 완료: dataId={}", id);
     }
 
     @Transactional
-    public void deleteData(Long id) {
-        Data data = dataRepo.findById(id)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+    public void delete(Long id) {
+        Data data = getData(id);
 
         if (!data.isMod()) {
+            log.error("[DATA] 수정할 수 없는 데이터: dataId={}", id);
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
@@ -192,21 +195,22 @@ public class DataService {
     }
 
     @Transactional
-    public void generate(AutoDataRequest request) {
-        Users user = userRepo.findById(request.getId())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    public List<Data> generate(String id, DataGenerateRequest request) {
+        Users user = getUser(id);
 
-        List<Data> dataList = new ArrayList<>(request.getCount());
+        List<Data> list = new ArrayList<>(request.getCount());
         for (int i = 0; i < request.getCount(); i++) {
-            dataList.add(request.toEntity(user));
+            list.add(request.toEntity(user));
         }
 
-        jdbcRepo.insert(dataList);
-        log.info("[SERVICE] B_NO {} 의 해당 기간({} ~ {}) 가상 세무 데이터 생성: {}건 ",
+        jdbcRepo.insert(list);
+        log.info("[DATA] B_NO {} 의 해당 기간({} ~ {}) 가상 세무 데이터 생성: {}건 ",
                 user.getId(), request.getStartMon(), request.getEndMon(), request.getCount());
+
+        return list;
     }
 
-    public void uploadCard(CardUploadRequest request) {
+    public void uploadCard(String id, DataUploadRequest request) {
         validate(request.getFile(), ".csv");
 
         YearMonth startMon = request.getStartYearMonth();
@@ -221,48 +225,56 @@ public class DataService {
         }
 
         LocalDate vatDeadline = Reports.getDeadline(ReportType.VAT, startMon, endMon);
-
         boolean isPassed = LocalDate.now().isAfter(vatDeadline);
-        boolean ignoreVat = false;
-        if (isPassed) {
-            boolean exists = dataRepo.existsByUserIdAndMethodAndCardNumAndTransDtBetween(
-                    request.getId(), DataMethod.CARD, request.getCardNum(), startDt, endDt);
-
-            if (exists) {
-                throw new CustomException(ErrorCode.REPORT_ALREADY_CLOSED);
-
-            } else {
-                ignoreVat = true;
-            }
-        }
+        boolean ignoreVat = isPassed;
 
         try {
             String fileName = request.getFile().getOriginalFilename();
             String fileData = new String(request.getFile().getBytes(), StandardCharsets.UTF_8);
 
             Map<String, String> paramMap = new HashMap<>();
-            paramMap.put("id", request.getCleanId());
+            paramMap.put("id", id.replaceAll("-", ""));
             paramMap.put("cardNum", request.getCleanCardNum());
             paramMap.put("startDt", startDt.toString());
             paramMap.put("endDt", endDt.toString());
             paramMap.put("ignoreVat", String.valueOf(ignoreVat));
+            paramMap.put("fileName", fileName);
 
-            String params = new Gson().toJson(paramMap);
+            String jobParameters = new Gson().toJson(paramMap);
 
-            BatchRequest batchReq = new BatchRequest("cardUploadJob", fileName, fileData, params);
-            batchRepo.save(batchReq);
+            BatchRequest batchRequest = BatchRequest.builder()
+                    .jobName("cardUploadJob")
+                    .fileName(fileName)
+                    .fileData(fileData)
+                    .jobParameters(jobParameters)
+                    .status(BatchStatus.READY)
+                    .build();
 
-            log.info("[SERVICE] B_NO {} 의 카드 파일 업로드 배치 대기열 등록: 카드({}), 부가세포함여부({})", request.getId(), request.getCardNum(), ignoreVat);
+            batchRepo.saveAndFlush(batchRequest);
+
+            log.info("[DATA] B_NO {} 의 카드 파일 업로드 배치 대기열 등록: 카드({}), 부가세포함여부({})",
+                    id, request.getCardNum(), ignoreVat);
 
         } catch (Exception e) {
-            log.error("[SERVICE] B_NO {} 의 카드 파일 업로드 오류", request.getId(), e);
+            log.error("[DATA] B_NO {} 의 카드 파일 업로드 오류", id, e);
             throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }
 
+
     // ==========================================
     // helper method
     // ==========================================
+
+    private Users getUser(String id) {
+        return userRepo.findById(id)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private Data getData(Long id) {
+        return dataRepo.findById(id)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+    }
 
     private void validate(MultipartFile file, String... extensions) {
         if (file.isEmpty() || file.getOriginalFilename() == null) {

@@ -1,5 +1,6 @@
 package com.bizreport.core.entity.history;
 
+import com.bizreport.core.entity.global.BaseEntity;
 import com.bizreport.core.entity.user.Status;
 import com.bizreport.core.entity.user.TaxType;
 import com.bizreport.core.entity.user.Users;
@@ -10,12 +11,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.prefs.BackingStoreException;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "BIZ_HISTORY")
-public class BizHistory {
+public class BizHistory extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "h_id")

@@ -1,5 +1,7 @@
 package com.bizreport.core.entity.user;
 
+import com.bizreport.core.entity.exception.CustomException;
+import com.bizreport.core.entity.exception.ErrorCode;
 import com.bizreport.core.entity.global.BaseEntity;
 import com.bizreport.core.entity.history.BizHistory;
 import jakarta.persistence.*;
@@ -42,6 +44,9 @@ public class Users extends BaseEntity {
     @Column(name = "ind_nm")
     private String indNm;
 
+    @Column(name = "refresh_count", nullable = false)
+    private int refreshCount = 0;
+
     @Builder
     public Users(String id, Status stt, TaxType taxType, LocalDate taxTypeChangeDt, LocalDate endDt, String nm, String indCd, String indNm) {
         this.id = id;
@@ -66,5 +71,16 @@ public class Users extends BaseEntity {
         this.nm = nm;
         this.indCd = indCd;
         this.indNm = indNm;
+    }
+
+    public void use() {
+        if (this.refreshCount <= 0) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_REFRESH_TICKET);
+        }
+        this.refreshCount--;
+    }
+
+    public void charge(int count) {
+        this.refreshCount += count;
     }
 }

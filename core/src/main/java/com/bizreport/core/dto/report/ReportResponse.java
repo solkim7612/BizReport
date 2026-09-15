@@ -19,6 +19,7 @@ public class ReportResponse {
     private String period;
     private BigDecimal tax;
     private Map<String, Object> calc;
+    private String updatedAt;
 
     public static ReportResponse from(Reports report) {
         return ReportResponse.builder()
@@ -29,6 +30,7 @@ public class ReportResponse {
                 .period(report.getPeriod())
                 .tax(report.getResult())
                 .calc(report.getCalc())
+                .updatedAt(report.getUpdatedAt() != null ? report.getUpdatedAt().toString() : null)
                 .build();
     }
 

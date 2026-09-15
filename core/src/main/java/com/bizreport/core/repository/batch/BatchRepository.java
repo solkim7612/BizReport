@@ -19,4 +19,10 @@ public interface BatchRepository extends JpaRepository<BatchRequest, Long> {
     @Query("UPDATE BatchRequest b SET b.status = 'READY' " +
             "WHERE b.status = 'PROCESSING' AND b.updatedAt < :thresholdTime")
     int recoverZombieRequests(@Param("thresholdTime") LocalDateTime thresholdTime);
+
+    @Query("SELECT b FROM BatchRequest b WHERE b.jobName = 'cardUploadJob' AND b.jobParameters LIKE %:userId% ORDER BY b.createdAt DESC")
+    List<BatchRequest> findCardUploadJobsByUserId(@Param("userId") String userId);
+
+    @Query("SELECT b FROM BatchRequest b WHERE b.jobName IN ('monReportJob', 'accReportJob') AND b.jobParameters LIKE %:userId% ORDER BY b.createdAt DESC")
+    List<BatchRequest> findReportJobsByUserId(@Param("userId") String userId);
 }

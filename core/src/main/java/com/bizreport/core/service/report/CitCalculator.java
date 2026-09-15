@@ -39,18 +39,18 @@ public class CitCalculator implements TaxCalculator {
                 ? sumBy(dataList, DataType.PURCHASE, d -> (d.getNetValue() == null || d.getNetValue().compareTo(BigDecimal.ZERO) == 0) ? d.getTotalPrice() : d.getNetValue())
                 : sumBy(dataList, DataType.PURCHASE, Data::getTotalPrice);
 
-        BigDecimal expPurchase = totalSales.multiply(expRt);
+        BigDecimal expPurchase = totalSales.multiply(expRt).setScale(0, RoundingMode.DOWN);
 
         BigDecimal totalPurchase = actPurchase.max(expPurchase);
 
         BigDecimal profit = totalSales.subtract(totalPurchase).max(BigDecimal.ZERO);
-        BigDecimal beforeTax = CITRate.calcTax(profit).max(BigDecimal.ZERO);
+        BigDecimal beforeTax = CITRate.calcTax(profit)
+                .setScale(0, RoundingMode.DOWN);
 
         BigDecimal tax = beforeTax.subtract(prepaidTax);
         boolean isRefund = tax.compareTo(BigDecimal.ZERO) < 0;
 
-        BigDecimal pay = isRefund ? BigDecimal.ZERO : tax.setScale(-1, RoundingMode.DOWN);
-        BigDecimal refund = isRefund ? tax.abs().setScale(-1, RoundingMode.DOWN) : BigDecimal.ZERO;
+        BigDecimal pay = tax.abs().setScale(-1, RoundingMode.DOWN);
 
         Map<String, Object> calc = new HashMap<>();
         calc.put("isGeneral", isGeneral);
@@ -62,7 +62,7 @@ public class CitCalculator implements TaxCalculator {
         calc.put("beforeTax", beforeTax);
         calc.put("prepaidTax", prepaidTax);
         calc.put("isRefund", isRefund);
-        calc.put("refund", refund);
+        calc.put("pay", pay);
 
         return new Result(pay, calc);
     }

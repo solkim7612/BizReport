@@ -1,0 +1,86 @@
+/* 네비게이션 바 전체 레이아웃 */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+  height: 60px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative; /* 중앙 정렬을 위한 기준점 */
+}
+
+/* 1. 로고 영역 (좌측) */
+.nav-logo a {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+/* 2. 중앙 메뉴 영역 */
+.nav-menu {
+  display: flex;
+  gap: 2rem;
+  /* 화면 가운데 고정 */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nav-menu a {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #4b5563;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-menu a:hover {
+  color: #2563eb;
+}
+
+.nav-right button {
+  height: 32px;
+}
+
+.sidebar-btn {
+  background: none;
+  border: none;
+  fontSize: 1.5rem;
+  cursor: pointer;
+  marginRight: 1rem;
+}
+
+/* ==========================================
+   반응형 (태블릿 및 모바일 환경 대응)
+   ========================================== */
+@media screen and (max-width: 768px) {
+  .navbar {
+    padding: 0 1rem;
+  }
+
+  /* 화면이 좁아지면 중앙 고정(absolute)을 풀고, Flex 공간을 균등 분배합니다 */
+  .nav-menu {
+    position: static;
+    transform: none;
+    gap: 1rem;
+  }
+
+  .nav-logo a {
+    font-size: 1.25rem;
+  }
+
+  .nav-menu a {
+    font-size: 0.95rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .nav-menu {
+    gap: 0.5rem;
+  }
+  .nav-menu a {
+    font-size: 0.85rem;
+  }
+}

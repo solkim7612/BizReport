@@ -1,72 +1,94 @@
 package com.bizreport.batch.scheduler;
 
+import com.bizreport.core.dto.batch.BatchStatusResponse;
+import com.google.gson.Gson;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.YearMonth;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/batch")
 @RequiredArgsConstructor
 public class BatchController {
 
-    private final BatchScheduler scheduler;
     private final BatchService service;
 
-    @PostMapping("/queue/run")
-    public ResponseEntity<String> runQueue(){
-
-        scheduler.runQueue();
-        return ResponseEntity.ok("대기 중인 배치 큐 즉시 처리 완료");
-    }
-
-    @PostMapping("/rate/delete")
-    public ResponseEntity<String> runDeleteRate() {
-
-        service.runDeleteRate();
-        return ResponseEntity.ok("세율 데이터 정리 배치 시작");
-    }
-
-    @PostMapping("/status/closed")
-    public ResponseEntity<String> runClosedStatus() {
-
-        service.runClosedStatus();
-        return ResponseEntity.ok("상태 마감 배치 시작");
-    }
-
-    @PostMapping("/status/update")
+    @PostMapping("/job/statusUpdateJob")
     public ResponseEntity<String> runUpdateStatus() {
+        service.register("statusUpdateJob", null);
 
-        service.runUpdateStatus();
-        return ResponseEntity.ok("상태 업데이트 배치 시작");
+        return ResponseEntity.ok("상태 업데이트 배치 큐 등록 완료");
     }
 
-    @PostMapping("/data/closed")
-    public ResponseEntity<String> runDataClosed(){
+    @PostMapping("/job/statusClosedJob")
+    public ResponseEntity<String> runClosedStatus() {
+        service.register("statusClosedJob", null);
 
-        service.runClosedData();
-        return ResponseEntity.ok("데이터 마감 배치 시작");
+        return ResponseEntity.ok("상태 마감 배치 큐 등록 완료");
     }
 
-    @PostMapping("/report/monthly")
-    public ResponseEntity<String> runReportMonthly() {
+    @PostMapping("/job/reportCreateJob")
+    public ResponseEntity<String> runCreateReport(@RequestParam(required = false) String endMon) {
+        YearMonth targetMon = (endMon != null && !endMon.isBlank())
+                ? YearMonth.parse(endMon)
+                : YearMonth.now().minusMonths(1);
 
-        service.runReportMonthly();
-        return ResponseEntity.ok("월간 리포트 생성 배치 시작");
+        String citParams = new Gson().toJson(Map.of("reportType", "CIT", "endMon", targetMon.toString()));
+        String vatParams = new Gson().toJson(Map.of("reportType", "VAT", "endMon", targetMon.toString()));
+
+        service.register("reportCreateJob", citParams);
+        service.register("reportCreateJob", vatParams);
+
+        return ResponseEntity.ok("월간/누적 리포트 생성 배치 큐 등록 완료");
     }
 
-    @PostMapping("/report/accumulated")
-    public ResponseEntity<String> runReportAccumulated() {
+    @PostMapping("/job/rateDeleteJob")
+    public ResponseEntity<String> runDeleteRate() {
+        service.register("rateDeleteJob", null);
 
-        service.runReportAccumulated();
-        return ResponseEntity.ok("누적 리포트 생성 배치 시작");
+        return ResponseEntity.ok("세율 데이터 정리 배치 큐 등록 완료");
     }
 
-    @PostMapping("/cache/clear")
+    @PostMapping("/job/dataClosedJob")
+    public ResponseEntity<String> runClosedData(){
+        service.register("dataClosedJob", null);
+
+        return ResponseEntity.ok("데이터 마감 배치 큐 등록 완료");
+    }
+
+    @PostMapping("/cache")
     public ResponseEntity<String> clearCache() {
+        service.clearCache();
 
-        service.clearRateCache();
         return ResponseEntity.ok("세율 및 업종명 캐시 초기화 완료");
+    }
+
+    @PostMapping("/queue/reap")
+    public ResponseEntity<String> runReapQueue() {
+        int count = service.reapQueue();
+
+        return ResponseEntity.ok("좀비 큐 롤백 처리 완료: " + count + "건");
+    }
+
+    @GetMapping("/queue/{id}")
+    public ResponseEntity<List<BatchStatusResponse>> getBatchStatus(@PathVariable("id") String id) {
+
+        return ResponseEntity.ok(service.getBatchStatus(id));
+    }
+
+    @GetMapping("/queue")
+    public ResponseEntity<List<BatchStatusResponse>> getAllBatches() {
+
+        return ResponseEntity.ok(service.getAllBatchStatus());
+    }
+
+    @GetMapping("/queue/detail/{batchId}")
+    public ResponseEntity<String> getBatchFileData(@PathVariable("batchId") Long batchId) {
+
+        return ResponseEntity.ok(service.getBatchFileData(batchId));
     }
 }
