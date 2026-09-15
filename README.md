@@ -103,9 +103,10 @@ erDiagram
     USERS ||--o{ DATA : "has"
     USERS ||--o{ REPORTS : "has"
     USERS ||--o{ BIZ_HISTORY : "has"
+    USERS ||--o{ REFRESH_HISTORY : "has"
     
     USERS {
-        VARCHAR(12) b_id PK
+        VARCHAR(12) b_id PK 
         VARCHAR(255) nm
         ENUM tax_type
         DATE tax_type_change_dt
@@ -113,6 +114,7 @@ erDiagram
         VARCHAR(255) ind_nm
         DATE end_dt
         ENUM b_stt
+        INT refresh_count
     }
 
     TAX_RATE {
@@ -155,6 +157,14 @@ erDiagram
         DATE tax_type_change_dt
         DATE tax_type_end_dt
     }
+    
+    REFRESH_HISTORY {
+        BIGINT id PK
+        VARCHAR(12) b_id FK
+        VARCHAR(10) type
+        INT amount
+        INT balance
+    }    
 
     batch_requests {
         BIGINT request_id PK
