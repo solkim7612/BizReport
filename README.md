@@ -76,16 +76,21 @@ graph TD
     CORE --> GVA
     CORE --> NTS
     NTS --> USR
-    CORE -->|0. 대기열 등록 (Producer)| REQ
+    CORE -->|"대기열 등록 Producer"| REQ
     CORE --> DATA
     CORE --> USR
     
     %% Batch 상세 흐름
-    BCON -.->|1. READY 대기열 Polling (Consumer)| REQ
-    BCON -->|2. 분산 락 획득| SHED
-    BCON -->|3. 순차적 JobLauncher 실행| DATA
-    BCON -->|4. 좀비 큐 복구 reapQueue| REQ
+    BCON -.->|"READY 대기열 Polling Consumer"| REQ
+    BCON -->|"분산 락 획득"| SHED
+    BCON -->|"순차적 JobLauncher 실행"| DATA
+    BCON -->|"좀비 큐 복구 reapQueue"| REQ
     
+    classDef fe fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+    classDef ext fill:#fef3c7,stroke:#d97706,stroke-width:2px;
+    classDef mod fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px;
+    classDef db fill:#d1fae5,stroke:#059669,stroke-width:2px;
+
     class UI fe;
     class NTS,GVA ext;
     class API,CORE,BCON mod;
